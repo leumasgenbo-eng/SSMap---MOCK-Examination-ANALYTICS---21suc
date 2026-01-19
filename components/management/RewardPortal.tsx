@@ -86,7 +86,6 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
     return results as any[];
   }, [students, settings.activeMock, subjects, facilitators, mockNames, selectedYear, mockStandardMean]);
 
-  // Ranking facilitators by TEI (Mock Rewards)
   const teiRanked = useMemo(() => {
     const sorted = [...facilitatorRewards].sort((a, b) => b.teiValue - a.teiValue);
     const totalTei = sorted.reduce((acc, f) => acc + f.teiValue, 0);
@@ -99,7 +98,6 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
     }));
   }, [facilitatorRewards, rewardPool]);
 
-  // Ranking facilitators by Sig-Diff (BECE Rewards)
   const sigDiffRanked = useMemo(() => {
     return [...facilitatorRewards].sort((a, b) => b.sigDiff - a.sigDiff).map((f, i) => ({
       ...f,
@@ -191,7 +189,7 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
         )}
 
         {view === 'facilitator-merit' && (
-          <div className="p-12 space-y-10 animate-in fade-in duration-500">
+          <div className="p-12 space-y-12 animate-in fade-in duration-500">
              <div className="flex flex-col md:flex-row justify-between items-center border-b-2 border-gray-50 pb-8 gap-4">
                 <div className="space-y-1">
                    <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Facilitator Reward Hub</h3>
@@ -214,21 +212,6 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
                    <div className="space-y-1">
                       <span className="text-[8px] font-black text-indigo-300 uppercase tracking-widest block">Distribution Mode</span>
                       <span className="text-white font-black text-xs uppercase">Heuristic Pro-Rata</span>
-                   </div>
-                </div>
-             </div>
-
-             <div className="bg-slate-50 p-6 rounded-[2rem] border border-gray-200">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Teaching Efficiency Index (TEI) Formula</h4>
-                <div className="flex flex-wrap items-center justify-center gap-6 text-center">
-                   <div className="p-4 bg-white rounded-2xl shadow-sm border border-gray-100 flex-1 min-w-[150px]">
-                      <span className="text-[18px] font-black text-blue-900">Gₚ × Sᵣ × Oᵣ × Tᵣ</span>
-                      <p className="text-[8px] font-bold text-gray-400 uppercase mt-1">Multipliers</p>
-                   </div>
-                   <div className="text-2xl font-black text-gray-300">=</div>
-                   <div className="p-4 bg-blue-900 text-white rounded-2xl shadow-lg flex-1 min-w-[150px]">
-                      <span className="text-xl font-black">TEI Index</span>
-                      <p className="text-[8px] font-black text-blue-300 uppercase mt-1">Unified Value</p>
                    </div>
                 </div>
              </div>
@@ -266,6 +249,79 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
                      </div>
                   </div>
                 ))}
+             </div>
+
+             {/* Formula Technical Specification Breakdown */}
+             <div className="mt-16 bg-slate-950 p-10 md:p-16 rounded-[4rem] text-white shadow-3xl border border-slate-800 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full -mr-48 -mt-48 blur-[100px]"></div>
+                <div className="relative space-y-12">
+                   <div className="text-center space-y-4">
+                      <h4 className="text-[12px] font-black text-blue-400 uppercase tracking-[0.6em] animate-pulse">Instructional Merit Formula</h4>
+                      <p className="text-4xl md:text-6xl font-mono font-black tracking-tighter text-white">TEI = Gₚ × Sᵣ × Oᵣ × Tᵣ</p>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Unified Teaching Efficiency Index (TEI) Specification</p>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="space-y-6 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 hover:border-blue-500/30 transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-sm">Gₚ</div>
+                            <h5 className="text-sm font-black text-white uppercase tracking-widest">Grade Proficiency Factor</h5>
+                         </div>
+                         <div className="space-y-3">
+                            <p className="text-[10px] font-mono text-blue-300 uppercase">Formula: 10 - Subject Mean Grade</p>
+                            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                               This factor establishes the excellence baseline. A cohort mean of 2.0 (high distinction) yields an 8.0 multiplier, while a mean of 8.0 (pass) yields only 2.0. It incentivizes the facilitator to drive pupils into higher distinction brackets.
+                            </p>
+                         </div>
+                      </div>
+
+                      <div className="space-y-6 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 hover:border-emerald-500/30 transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center font-black text-sm">Sᵣ</div>
+                            <h5 className="text-sm font-black text-white uppercase tracking-widest">Subject Velocity Ratio</h5>
+                         </div>
+                         <div className="space-y-3">
+                            <p className="text-[10px] font-mono text-emerald-300 uppercase">Formula: Active Series Mean / Baseline Series Mean</p>
+                            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                               Tracks longitudinal growth of the whole cohort. A value > 1.0 indicates that the facilitator has successfully improved the class average relative to the previous mock series, rewarding instructional progress.
+                            </p>
+                         </div>
+                      </div>
+
+                      <div className="space-y-6 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 hover:border-indigo-500/30 transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-sm">Oᵣ</div>
+                            <h5 className="text-sm font-black text-white uppercase tracking-widest">Objective Precision Rate</h5>
+                         </div>
+                         <div className="space-y-3">
+                            <p className="text-[10px] font-mono text-indigo-300 uppercase">Formula: Current Sec A Mean / Previous Sec A Mean</p>
+                            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                               Specifically measures the growth in Section A (Objectives). High Oᵣ indicates that students are becoming more precise and rapid in conceptual identification and MCQ strategies under the facilitator's guidance.
+                            </p>
+                         </div>
+                      </div>
+
+                      <div className="space-y-6 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 hover:border-purple-500/30 transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center font-black text-sm">Tᵣ</div>
+                            <h5 className="text-sm font-black text-white uppercase tracking-widest">Theoretical Depth Rate</h5>
+                         </div>
+                         <div className="space-y-3">
+                            <p className="text-[10px] font-mono text-purple-300 uppercase">Formula: Current Sec B Mean / Previous Sec B Mean</p>
+                            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                               Measures growth in Section B (Theory). As this section requires the highest level of articulation, improvement here heavily influences the TEI by validating the facilitator's depth of instructional delivery.
+                            </p>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="pt-8 border-t border-white/10 text-center">
+                      <p className="text-[11px] font-black text-blue-500 uppercase tracking-[0.4em] mb-4">PLC Operational Decision Logic:</p>
+                      <p className="text-xs text-slate-500 leading-relaxed italic max-w-4xl mx-auto">
+                        "The TEI identifies instructional efficiency. During **Professional Learning Communities (PLC)**, facilitators with TEI > 8.0 are designated as 'Pedagogical Hubs' to lead cross-departmental Section B calibration sessions. A declining TEI triggers a 'Strategy Friction' audit to adjust curriculum pacing."
+                      </p>
+                   </div>
+                </div>
              </div>
           </div>
         )}
