@@ -425,11 +425,60 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
                          ))}
                       </div>
                    </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="bg-white border-2 border-gray-100 rounded-[3rem] p-8 space-y-6">
+                         <h4 className="text-sm font-black text-blue-900 uppercase tracking-widest">Top Pupil Progression Index</h4>
+                         <div className="space-y-3">
+                            {mockRewardRanking.slice(0, 5).map((p, i) => (
+                               <div key={p.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl">
+                                  <span className="text-xs font-black uppercase text-slate-900">#{i+1} {p.name}</span>
+                                  <span className="text-[10px] font-mono font-black text-blue-600">{p.rewardIndex.toFixed(2)}</span>
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+
+                      <div className="bg-white border-2 border-gray-100 rounded-[3rem] p-8 space-y-6">
+                         <h4 className="text-sm font-black text-emerald-700 uppercase tracking-widest">Subject Significance (Σ Δ)</h4>
+                         <div className="space-y-3">
+                            {subjectSignificanceRanking.slice(0, 5).map((f, i) => (
+                               <div key={i} className="flex justify-between items-center p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/30">
+                                  <span className="text-xs font-black uppercase text-slate-900">Σ+{f.sigDiff.toFixed(2)} {f.subject}</span>
+                                  <span className="text-[10px] font-mono font-black text-emerald-900">Mean {f.beceMeanGrade.toFixed(2)}</span>
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+                   </div>
                 </div>
              </section>
+
+             <div className="bg-gray-50 p-12 rounded-[4rem] border-2 border-dashed border-gray-200">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.5em] mb-12 text-center">Institutional Verification</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-20">
+                   <div className="text-center space-y-2"><div className="border-t-2 border-black pt-2 font-black uppercase text-[10px]">Head Teacher</div><p className="text-[8px] text-gray-400 italic">Pedagogical Integrity Verified</p></div>
+                   <div className="text-center space-y-2"><div className="border-t-2 border-black pt-2 font-black uppercase text-[10px]">Registry Hub</div><p className="text-[8px] text-gray-400 italic">Data Persistence Validated</p></div>
+                   <div className="text-center space-y-2"><div className="border-t-2 border-black pt-2 font-black uppercase text-[10px]">Academy Director</div><p className="text-[8px] text-gray-400 italic">Institutional Seal</p></div>
+                </div>
+             </div>
+
+             <div className="pt-12 text-center">
+                <p className="text-[9px] font-black text-blue-900 uppercase tracking-[2em] opacity-30">SS-MAP PERFORMANCE HUB — {selectedYear} ANNUAL AUDIT</p>
+             </div>
           </div>
         )}
 
+      </div>
+
+      <div className="bg-slate-950 p-6 rounded-[2.5rem] flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 no-print">
+         <div className="flex items-center gap-4">
+            <span className="text-blue-500">Registry Sync:</span>
+            <span className="text-white">NODE COMMUNICATING</span>
+         </div>
+         <div className="flex items-center gap-3 italic">
+            Teaching Efficiency Index (TEI) v4.2 Unified
+         </div>
       </div>
     </div>
   );
