@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, SchoolRegistryEntry } from '../../types';
 import ReportCard from '../reports/ReportCard';

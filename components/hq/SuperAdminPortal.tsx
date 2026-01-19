@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SchoolRegistryEntry, RemarkMetric } from '../../types';
 

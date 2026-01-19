@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export type ManagementTabType = 'scoreEntry' | 'school' | 'credentials' | 'pupils' | 'facilitators' | 'grading' | 'history' | 'resources' | 'facilitatorDesk' | 'localSync' | 'rewards';
