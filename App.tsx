@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -18,10 +17,10 @@ import { RAW_STUDENTS, FACILITATORS, SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_N
 const MOCK_SERIES = Array.from({ length: 10 }, (_, i) => `MOCK ${i + 1}`);
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-  schoolName: "CULBURY ACADEMY",
+  schoolName: "UNITED BAYLOR ACADEMY",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "", 
-  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
+  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
@@ -66,7 +65,6 @@ const App: React.FC = () => {
   const [isRemoteViewing, setIsRemoteViewing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   
-  // Fix: Added missing globalRegistry state and its setter to satisfy references in initializeDemo, handleSave, and PupilDashboard
   const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>(() => {
     const saved = localStorage.getItem('uba_global_registry');
     return saved ? JSON.parse(saved) : [];
@@ -86,7 +84,7 @@ const App: React.FC = () => {
     const initial: Record<string, StaffAssignment> = {};
     Object.keys(FACILITATORS).forEach((key, idx) => {
       initial[key] = {
-        name: '', // Empty for real entry
+        name: '', 
         role: 'FACILITATOR', 
         enrolledId: `FAC-${(idx + 1).toString().padStart(3, '0')}`,
         taughtSubject: key,
@@ -151,13 +149,13 @@ const App: React.FC = () => {
   }, [settings.activeMock]);
 
   const initializeDemo = () => {
-    if (window.confirm("Initialize CULBURY ACADEMY demo suite?")) {
+    if (window.confirm("Initialize UNITED BAYLOR ACADEMY demo suite?")) {
       const { students: demoStudents, resourcePortal, mockSnapshots, registryEntry } = generateFullDemoSuite();
       setStudents(demoStudents);
       setSettings(prev => ({ 
         ...prev, 
-        schoolName: "CULBURY ACADEMY", 
-        schoolNumber: "CBA-2025-001",
+        schoolName: "UNITED BAYLOR ACADEMY", 
+        schoolNumber: "UBA-2025-001",
         accessCode: "SSMAP-HQ-SECURE",
         resourcePortal,
         mockSnapshots,
@@ -168,20 +166,19 @@ const App: React.FC = () => {
       const filteredRegistry = existingRegistry.filter(r => r.id !== registryEntry.id);
       filteredRegistry.push({
           ...registryEntry,
-          fullData: { settings: { ...DEFAULT_SETTINGS, resourcePortal, mockSnapshots, schoolName: "CULBURY ACADEMY", schoolNumber: "CBA-2025-001", accessCode: "SSMAP-HQ-SECURE" }, students: demoStudents, facilitators }
+          name: "UNITED BAYLOR ACADEMY",
+          fullData: { settings: { ...DEFAULT_SETTINGS, resourcePortal, mockSnapshots, schoolName: "UNITED BAYLOR ACADEMY", schoolNumber: "UBA-2025-001", accessCode: "SSMAP-HQ-SECURE" }, students: demoStudents, facilitators }
       });
       localStorage.setItem('uba_global_registry', JSON.stringify(filteredRegistry));
-      // Fix: Used newly defined setGlobalRegistry setter
       setGlobalRegistry(filteredRegistry);
-
       alert("Demo Data Synchronized.");
     }
   };
 
   const handleClearData = () => {
     if (window.confirm("SWITCH TO REAL MODE: This will wipe all pupil names, scores, and staff identity to allow for fresh institutional data entry. Institutional credentials will remain. Proceed?")) {
-      setStudents([]); // Completely clear pupils
-      setFacilitators(getDefaultFacilitators()); // Reset staff names to empty
+      setStudents([]); 
+      setFacilitators(getDefaultFacilitators()); 
       setSettings(prev => ({
         ...prev,
         resourcePortal: {},
@@ -196,7 +193,6 @@ const App: React.FC = () => {
     localStorage.setItem('uba_app_settings', JSON.stringify(settings));
     localStorage.setItem('uba_students', JSON.stringify(students));
     localStorage.setItem('uba_facilitators', JSON.stringify(facilitators));
-    // Also sync to registry if possible for ranking accuracy
     if (settings.schoolNumber) {
       const registry: SchoolRegistryEntry[] = JSON.parse(localStorage.getItem('uba_global_registry') || '[]');
       const entryIdx = registry.findIndex(r => r.id === settings.schoolNumber);
@@ -205,7 +201,6 @@ const App: React.FC = () => {
         registry[entryIdx].studentCount = students.length;
         registry[entryIdx].lastActivity = new Date().toISOString();
         localStorage.setItem('uba_global_registry', JSON.stringify(registry));
-        // Fix: Used newly defined setGlobalRegistry setter
         setGlobalRegistry(registry);
       }
     }
@@ -346,7 +341,6 @@ const App: React.FC = () => {
             classAverageAggregate={classAvgAggregate} 
             totalEnrolled={processedStudents.length} 
             onSettingChange={handleSettingChange}
-            // Fix: Passed newly defined globalRegistry state
             globalRegistry={globalRegistry}
           />
         )}

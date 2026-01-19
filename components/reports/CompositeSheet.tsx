@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
@@ -149,7 +148,7 @@ const CompositeSheet: React.FC<CompositeSheetProps> = ({ students, stats, settin
         <div className="bg-slate-900 text-slate-100 p-10 rounded-[4rem] shadow-2xl border border-slate-800 space-y-12 page-break-inside-avoid print:bg-slate-50 print:text-slate-900 print:border-gray-300 print:rounded-3xl">
            <div className="text-center space-y-2">
               <h3 className="text-2xl font-black uppercase tracking-tighter text-blue-400 print:text-blue-900">Mathematical Model & Performance Formulas</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">UNITED BAYLOR ACADEMY ANALYTICAL STANDARDS</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">ACADEMY ANALYTICAL STANDARDS</p>
            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">

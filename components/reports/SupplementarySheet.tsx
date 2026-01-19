@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings } from '../../types';
 import { SUBJECT_LIST } from '../../constants';

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { StudentData, GlobalSettings, MockSeriesRecord, ExamSubScore, StaffAssignment } from '../../types';
 import EditableField from '../shared/EditableField';
@@ -346,7 +345,7 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
                    </h4>
                    <div className="bg-white/10 p-8 rounded-[2rem] border border-white/10 text-center">
                       <p className="text-3xl font-mono font-black">Σ Δ = Mock Standard (5.5) - BECE Mean</p>
-                      <p className="text-[10px] text-emerald-300 uppercase mt-3 tracking-widest font-black">Success Metric: Σ Δ > 0 indicates institutional growth over standard</p>
+                      <p className="text-[10px] text-emerald-300 uppercase mt-3 tracking-widest font-black">Success Metric: Σ Δ &gt; 0 indicates institutional growth over standard</p>
                    </div>
                 </div>
              </div>
