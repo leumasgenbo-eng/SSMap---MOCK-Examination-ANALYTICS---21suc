@@ -13,7 +13,7 @@ interface LoginPortalProps {
   onSwitchToRegister: () => void;
 }
 
-const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC";
+const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC";
 
 const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, processedStudents, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
@@ -32,18 +32,20 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
   const [error, setError] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  
+  // Visibility States for Keys
+  const [showAdminKey, setShowAdminKey] = useState(false);
+  const [showFacilitatorKey, setShowFacilitatorKey] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
     
-    // MASTER KEY INTERCEPT (Immediate Redirect)
     const MASTER_KEY = "HQ-MASTER-2025";
     const inputKey = credentials.accessKey.trim();
     const inputStaffId = credentials.staffId.trim();
     const inputPupilIndex = credentials.pupilIndex.trim();
 
-    // If master key is entered in any sensitive field, grant HQ access immediately
     if (inputKey === MASTER_KEY || inputStaffId === MASTER_KEY || inputPupilIndex === MASTER_KEY) {
       setTimeout(() => {
         onSuperAdminLogin();
@@ -55,7 +57,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     const targetSchoolName = (settings.schoolName || "").trim().toLowerCase();
     const targetHubId = (settings.schoolNumber || "").trim().toUpperCase();
 
-    // Standard Multi-Gate Logic
     setTimeout(() => {
       if (authMode === 'ADMIN') {
         const inputSchoolNumber = credentials.schoolNumber.trim().toUpperCase();
@@ -91,7 +92,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
           failAuth();
         }
       } else {
-        // PUPIL AUTHENTICATION
         const inputPupilName = credentials.pupilName.trim().toUpperCase();
         const indexNum = parseInt(inputPupilIndex) || 0;
         const inputHubId = credentials.schoolNumber.trim().toUpperCase();
@@ -164,9 +164,28 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
                     <input type="text" value={credentials.registrant} onChange={(e) => setCredentials({...credentials, registrant: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 uppercase transition-all" placeholder="IDENTITY..." />
                   </div>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 relative">
                   <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest ml-1">Hub Access Key</label>
-                  <input type="password" value={credentials.accessKey} onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase tracking-widest transition-all" placeholder="SSMAP-SEC-••••••••" />
+                  <div className="relative group/key">
+                    <input 
+                      type={showAdminKey ? "text" : "password"} 
+                      value={credentials.accessKey} 
+                      onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} 
+                      className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase tracking-widest transition-all pr-12" 
+                      placeholder="SSMAP-SEC-••••••••" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowAdminKey(!showAdminKey)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-300 hover:text-indigo-600 transition-colors"
+                    >
+                      {showAdminKey ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -183,9 +202,28 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
                     {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 relative">
                   <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest ml-1">Institutional Staff ID</label>
-                  <input type="text" value={credentials.staffId} onChange={(e) => setCredentials({...credentials, staffId: e.target.value})} className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase tracking-widest transition-all" placeholder="E.G. HUB-ID/FAC-001" />
+                  <div className="relative">
+                    <input 
+                      type={showFacilitatorKey ? "text" : "password"} 
+                      value={credentials.staffId} 
+                      onChange={(e) => setCredentials({...credentials, staffId: e.target.value})} 
+                      className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase tracking-widest transition-all pr-12" 
+                      placeholder="E.G. HUB-ID/FAC-001" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowFacilitatorKey(!showFacilitatorKey)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-300 hover:text-indigo-600 transition-colors"
+                    >
+                      {showFacilitatorKey ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </>
             )}

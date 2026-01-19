@@ -145,7 +145,8 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
       const tel = school.remarkTelemetry;
       if (!tel || !tel.subjectRemarks) return;
       
-      Object.entries(tel.subjectRemarks).forEach(([subject, metrics]) => {
+      // Fix: Explicitly cast Object.entries result to resolve unknown type inference for metrics which caused Property 'forEach' does not exist on type 'unknown' error
+      (Object.entries(tel.subjectRemarks) as [string, RemarkMetric[]][]).forEach(([subject, metrics]) => {
         if (!map[subject]) {
           map[subject] = {
             subject,
