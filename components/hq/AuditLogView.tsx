@@ -1,87 +1,81 @@
-
-import React from 'react';
-import { SchoolRegistryEntry, VerificationEntry } from '../../types';
+import React, { useState } from 'react';
+import { SystemAuditEntry } from './SuperAdminPortal';
 
 interface AuditLogViewProps {
-  registry: SchoolRegistryEntry[];
-  selectedAuditId: string | null;
-  setSelectedAuditId: (id: string | null) => void;
-  onRemoteView: (schoolId: string) => void;
+  auditTrail: SystemAuditEntry[];
 }
 
-const AuditLogView: React.FC<AuditLogViewProps> = ({ registry, selectedAuditId, setSelectedAuditId, onRemoteView }) => {
-  const auditSchool = registry.find(r => r.id === selectedAuditId);
+const AuditLogView: React.FC<AuditLogViewProps> = ({ auditTrail }) => {
+  // Fix: Explicitly cast Array.from result to string[] to resolve 'unknown' type error for localeCompare
+  const years = (Array.from(new Set(auditTrail.map(a => a.year))) as string[]).sort((a,b) => b.localeCompare(a));
+  const [selectedYear, setSelectedYear] = useState(years[0] || new Date().getFullYear().toString());
+
+  const filteredLogs = auditTrail.filter(log => log.year === selectedYear);
 
   return (
-    <div className="animate-in slide-in-from-left-8 duration-500">
-      <div className="p-8 border-b border-slate-800 bg-slate-900/50 flex flex-wrap gap-4 items-center">
-        <h2 className="text-xl font-black uppercase text-white mr-8">Network Audit Trail</h2>
-        <select 
-          value={selectedAuditId || ''} 
-          onChange={(e) => setSelectedAuditId(e.target.value || null)}
-          className="bg-slate-950 text-white font-black py-3 px-6 rounded-xl border border-slate-800 text-[10px] uppercase outline-none focus:ring-4 focus:ring-blue-500/20"
-        >
-          <option value="">SELECT HUB FOR AUDIT...</option>
-          {registry.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
-        </select>
-        {selectedAuditId && (
-          <button 
-            onClick={() => onRemoteView(selectedAuditId)}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl text-[9px] font-black uppercase transition-all"
+    <div className="animate-in slide-in-from-left-8 duration-500 flex flex-col h-full">
+      <div className="p-8 border-b border-slate-800 bg-slate-900/50 flex flex-wrap gap-6 items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-xl font-black uppercase text-white">System Audit Trail</h2>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Master Action History</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <label className="text-[9px] font-black text-slate-500 uppercase">Successive Cycle:</label>
+          <select 
+            value={selectedYear} 
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="bg-slate-950 text-white font-black py-2.5 px-6 rounded-xl border border-slate-800 text-[10px] uppercase outline-none focus:ring-4 focus:ring-blue-500/20"
           >
-            Launch Command View
-          </button>
+            {years.map(y => <option key={y} value={y}>{y} ACADEMIC PERIOD</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-8 space-y-4 no-scrollbar max-h-[600px]">
+        {filteredLogs.length > 0 ? (
+          filteredLogs.map((log, i) => (
+            <div key={i} className="bg-slate-950 border border-slate-800 p-6 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group hover:border-slate-600 transition-all">
+              <div className="flex items-start gap-6">
+                <div className="w-12 h-12 bg-slate-900 rounded-2xl flex flex-col items-center justify-center border border-slate-800 group-hover:border-blue-500/30">
+                  <span className="text-[7px] font-black text-slate-600 leading-none">IDX</span>
+                  <span className="text-xs font-black text-blue-400">{filteredLogs.length - i}</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${
+                      log.action.includes('MASTER') ? 'bg-indigo-500/20 text-indigo-400' : 
+                      log.action.includes('DECOMMISSION') ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                    }`}>
+                      {log.action}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-600">{new Date(log.timestamp).toLocaleString()}</span>
+                  </div>
+                  <h4 className="text-sm font-black text-white uppercase tracking-tight">{log.details}</h4>
+                  <p className="text-[9px] font-black text-slate-500 uppercase">Target: <span className="text-slate-300">{log.target}</span></p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
+                  <span className="text-[8px] font-black text-slate-600 uppercase block mb-1">Actor Node</span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-black">{log.actor}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="py-40 text-center flex flex-col items-center gap-6 opacity-20">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <p className="text-white font-black uppercase text-xs tracking-[0.5em]">No synchronization history for this period</p>
+          </div>
         )}
       </div>
-      <div className="p-8">
-        {auditSchool ? (
-          <div className="space-y-12">
-            {/* Fix: Explicitly cast Object.entries result to resolve 'map' on unknown 'logs' */}
-            {(Object.entries(auditSchool.verificationLogs || {}) as [string, VerificationEntry[]][]).map(([series, logs]) => (
-              <div key={series} className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-0.5 flex-1 bg-slate-800"></div>
-                  <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.4em]">{series} INTEGRITY LOG</h3>
-                  <div className="h-0.5 flex-1 bg-slate-800"></div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {logs.map((log, li) => (
-                    <div key={li} className="bg-slate-950 p-6 rounded-3xl border border-slate-800 space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <p className="text-xs font-black text-white uppercase">{log.subject}</p>
-                          <p className="text-[10px] font-black text-slate-500">Verified by: <span className="text-blue-400 uppercase">{log.verifiedBy}</span></p>
-                        </div>
-                        <span className="text-[8px] font-black bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 uppercase">{log.status}</span>
-                      </div>
-                      <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800/50">
-                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-3">Confirmation Indices:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {/* Fix: Directly use confirmedScripts as logs is now correctly typed as VerificationEntry[] */}
-                          {log.confirmedScripts.map((name, ni) => (
-                            <span key={ni} className="bg-slate-900 text-blue-300 px-3 py-1 rounded-lg text-[9px] font-bold border border-slate-800 uppercase italic truncate max-w-[150px]">{name}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            {(!auditSchool.verificationLogs || Object.keys(auditSchool.verificationLogs).length === 0) && (
-              <div className="py-32 text-center">
-                <p className="text-slate-600 font-black uppercase text-sm tracking-[0.5em]">No synchronization logs found for this hub</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="py-40 text-center flex flex-col items-center gap-6 opacity-30">
-            <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            </div>
-            <p className="text-white font-black uppercase text-xs tracking-widest">Awaiting Institutional Target Selection</p>
-          </div>
-        )}
+
+      <div className="p-8 border-t border-slate-800 bg-slate-950/50 flex justify-between items-center">
+         <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">End of Succession Ledger</span>
+         <div className="flex gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Audit Terminal Sync Active</span>
+         </div>
       </div>
     </div>
   );
