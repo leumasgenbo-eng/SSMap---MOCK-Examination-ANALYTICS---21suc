@@ -60,6 +60,8 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     }
 
     const hubId = credentials.schoolNumber.trim().toUpperCase();
+    
+    // Check against global registry (which represents cloud data)
     const schoolEntry = globalRegistry.find(r => r.id === hubId);
 
     setTimeout(() => {
@@ -74,12 +76,14 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         }
       } else if (authMode === 'FACILITATOR') {
         if (schoolEntry) {
+          // Facilitator login logic is more open but tied to a valid hub
           onFacilitatorLogin(credentials.facilitatorName.trim().toUpperCase(), credentials.subject, hubId);
         } else {
           failAuth();
         }
       } else {
         if (schoolEntry) {
+          // Pupil login logic tied to hub
           onPupilLogin(parseInt(credentials.pupilIndex) || 0, hubId);
         } else {
           failAuth();

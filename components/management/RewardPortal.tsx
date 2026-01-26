@@ -554,6 +554,7 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
 
       </div>
 
+      {/* Quality Compliance Footer */}
       <div className="bg-slate-950 p-6 rounded-[2.5rem] flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 no-print">
          <div className="flex items-center gap-4">
             <span className="text-blue-500">Registry Sync:</span>

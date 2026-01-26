@@ -87,6 +87,50 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     }
   };
 
+  const handleDownloadCredentials = () => {
+    const text = `SS-MAP - INSTITUTIONAL ACCESS PACK\n` +
+                 `==================================================\n\n` +
+                 `USE THESE 4 FIELDS TO LOGIN TO YOUR HUB:\n\n` +
+                 `1. Institution Name:   ${registeredData?.schoolName}\n` +
+                 `2. Institution ID:     ${registeredData?.schoolNumber}\n` +
+                 `3. Registered Director: ${registeredData?.registrantName}\n` +
+                 `4. System Access Key:   ${registeredData?.accessCode}\n\n` +
+                 `--------------------------------------------------\n` +
+                 `REGISTRATION DETAILS:\n` +
+                 `Location:         ${registeredData?.schoolAddress}\n` +
+                 `School Email:     ${registeredData?.schoolEmail}\n` +
+                 `Contact Node:     ${registeredData?.schoolContact}\n` +
+                 `Date Registered:  ${new Date().toLocaleDateString()}\n\n` +
+                 `* IMPORTANT: Save this file securely. Your Access Key is unique.`;
+    
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SSMap_Hub_Credentials_${registeredData?.schoolNumber}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyCredentials = () => {
+    const text = `Institution: ${registeredData?.schoolName}\nHub ID: ${registeredData?.schoolNumber}\nDirector: ${registeredData?.registrantName}\nKey: ${registeredData?.accessCode}`;
+    navigator.clipboard.writeText(text);
+    alert("Credentials copied to clipboard.");
+  };
+
+  const handleEmailCredentials = () => {
+    const subject = `Institutional Access Pack - ${registeredData?.schoolName}`;
+    const body = `SS-MAP - INSTITUTIONAL ACCESS PACK\n\n` +
+                 `Institution: ${registeredData?.schoolName}\n` +
+                 `Hub ID: ${registeredData?.schoolNumber}\n` +
+                 `Director: ${registeredData?.registrantName}\n` +
+                 `Access Key: ${registeredData?.accessCode}\n\n` +
+                 `Keep this email safe for all future logins.`;
+    
+    const mailtoUrl = `mailto:${registeredData?.registrantEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoUrl, '_blank');
+  };
+
   if (isRegistered) {
     return (
       <div className="max-w-4xl mx-auto animate-in zoom-in-95 duration-700">
@@ -111,9 +155,21 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
               ))}
            </div>
            
+           <div className="flex flex-wrap justify-center gap-4 no-print">
+              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                 Download Pack
+              </button>
+              <button onClick={handleCopyCredentials} className="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase border border-white/20 transition-all">Copy Details</button>
+              <button onClick={handleEmailCredentials} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                 Email to Self
+              </button>
+           </div>
+           
            <div className="space-y-4">
               <p className="text-[10px] text-gray-500 uppercase font-black leading-relaxed italic px-8">
-                Important: Take a screenshot or write down these keys. This is the only time the system access key will be shown in plain text.
+                Important: Your system access key is only visible once in plain text. Please save it using the options above.
               </p>
               <button 
                 onClick={() => onComplete?.(registeredData)} 
@@ -150,6 +206,14 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <div className="space-y-1.5">
                <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Registrant Director</label>
                <input type="text" placeholder="FULL NAME..." value={formData.registrant} onChange={(e) => setFormData({...formData, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required />
+            </div>
+            <div className="space-y-1.5">
+               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Director Email</label>
+               <input type="email" placeholder="PERSONAL@MAIL.COM" value={formData.registrantEmail} onChange={(e) => setFormData({...formData, registrantEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required />
+            </div>
+            <div className="space-y-1.5">
+               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">School Official Email</label>
+               <input type="email" placeholder="OFFICE@ACADEMY.COM" value={formData.schoolEmail} onChange={(e) => setFormData({...formData, schoolEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required />
             </div>
             <div className="space-y-1.5">
                <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Contact Node</label>
