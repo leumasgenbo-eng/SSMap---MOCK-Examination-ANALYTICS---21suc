@@ -66,15 +66,15 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     const hubId = credentials.schoolNumber.trim().toUpperCase();
     
     // 2. Locate Institutional Entry in Cloud Registry
-    const schoolEntry = globalRegistry.find(r => r.id === hubId);
+    const schoolEntry = globalRegistry.find(r => r.id.trim().toUpperCase() === hubId);
 
     setTimeout(() => {
       if (authMode === 'ADMIN') {
         // Multi-factor Validation for Admin Hub
         if (schoolEntry && 
-            schoolEntry.accessCode.toUpperCase() === inputKey && 
-            schoolEntry.name.toUpperCase() === credentials.schoolName.trim().toUpperCase() &&
-            schoolEntry.registrant.toUpperCase() === credentials.registrant.trim().toUpperCase()) {
+            schoolEntry.accessCode.trim().toUpperCase() === inputKey && 
+            schoolEntry.name.trim().toUpperCase() === credentials.schoolName.trim().toUpperCase() &&
+            schoolEntry.registrant.trim().toUpperCase() === credentials.registrant.trim().toUpperCase()) {
           setIsAuthenticating(false);
           onLoginSuccess(hubId);
         } else {

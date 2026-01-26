@@ -10,8 +10,30 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * ARCHITECTURAL REQUIREMENTS:
- * The 'uba_persistence' table must exist in the Supabase project with:
- * - id (TEXT PRIMARY KEY)
- * - payload (JSONB)
- * - last_updated (TIMESTAMPTZ)
+ * The 'uba_persistence' table must exist in the Supabase project.
+ * 
+ * SQL CONFIGURATION (Run in Supabase SQL Editor):
+ * 
+ * -- 1) Create table if missing
+ * CREATE TABLE IF NOT EXISTS public.uba_persistence (
+ *   id TEXT PRIMARY KEY,
+ *   payload JSONB NOT NULL,
+ *   last_updated TIMESTAMPTZ DEFAULT NOW()
+ * );
+ * 
+ * -- 2) Add user_id column if missing
+ * ALTER TABLE public.uba_persistence
+ *   ADD COLUMN IF NOT EXISTS user_id uuid;
+ * 
+ * -- 3) Index for policy performance
+ * CREATE INDEX IF NOT EXISTS idx_uba_persistence_user_id ON public.uba_persistence(user_id);
+ * 
+ * -- 4) Ensure RLS is enabled
+ * ALTER TABLE public.uba_persistence ENABLE ROW LEVEL SECURITY;
+ * 
+ * -- 5) Remove any permissive public policy named "Allow public access" (if it exists)
+ * -- EXECUTE format('DROP POLICY "%s" ON public.uba_persistence', 'Allow public access');
+ * 
+ * -- 6) Create owner-based policies for authenticated users
+ * -- Note: Ensure the "Allow public access" policy is replaced with specific authenticated ones.
  */
