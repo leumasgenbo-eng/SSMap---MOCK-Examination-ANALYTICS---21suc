@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
 import { supabase } from './supabaseClient';
 
-// Organized Imports by Portal
+// Portal Components
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
@@ -13,7 +13,7 @@ import LoginPortal from './components/auth/LoginPortal';
 import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
 import PupilDashboard from './components/pupil/PupilDashboard';
 
-import { RAW_STUDENTS, FACILITATORS, SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
+import { RAW_STUDENTS, SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
 const MOCK_SERIES = Array.from({ length: 10 }, (_, i) => `MOCK ${i + 1}`);
 
@@ -29,13 +29,10 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   attendanceTotal: "60",
   startDate: "10-02-2025",
   endDate: "15-02-2025",
-  headTeacherName: "SA",
+  headTeacherName: "DIRECTOR NAME",
   reportDate: new Date().toLocaleDateString(),
   schoolContact: "+233 24 350 4091",
-  schoolEmail: "leumasgenbo@gmail.com",
-  registrantName: "SA",
-  registrantEmail: "leumasgenbo@gmail.com",
-  accessCode: "SEC-C208VC85", 
+  schoolEmail: "info@unitedbaylor.edu",
   gradingThresholds: DEFAULT_THRESHOLDS,
   categoryThresholds: DEFAULT_CATEGORY_THRESHOLDS,
   normalizationConfig: DEFAULT_NORMALIZATION,
@@ -57,7 +54,6 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('master');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
-  // Auth & Reg State
   const [isAuthenticated, setIsAuthenticated] = useState(false); 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isFacilitator, setIsFacilitator] = useState(false);
@@ -67,167 +63,100 @@ const App: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [postRegistrationData, setPostRegistrationData] = useState<any>(null);
   
-  // Data State
   const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
   const [students, setStudents] = useState<StudentData[]>(RAW_STUDENTS);
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
-  // 1. BOOTSTRAP: Fetch Registry Nodes
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
   const fetchRegistry = useCallback(async () => {
     try {
-      // Registry nodes are unique per institution in this implementation to respect RLS
-      const { data, error } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
+      const { data } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (data) {
-         const combinedRegistry: SchoolRegistryEntry[] = data.flatMap(row => row.payload as SchoolRegistryEntry[]);
-         setGlobalRegistry(combinedRegistry);
+         setGlobalRegistry(data.flatMap(row => row.payload as SchoolRegistryEntry[]));
       }
-    } catch (err) {
-      console.warn("Registry sync unavailable. Local session active.");
-    } finally {
-      setIsInitializing(false);
-    }
+    } catch (err) { console.warn("Registry sync unavailable."); }
+    finally { setIsInitializing(false); }
   }, []);
 
-  // 2. SESSION LOAD: Fetch school-specific data after login
   const loadSchoolSession = async (hubId: string) => {
     setIsInitializing(true);
     try {
-      const { data, error } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
-      if (data && data.length > 0) {
-        const remote: any = {};
-        data.forEach(row => { remote[row.id] = row.payload; });
-        if (remote[`${hubId}_settings`]) setSettings(remote[`${hubId}_settings`]);
-        if (remote[`${hubId}_students`]) setStudents(remote[`${hubId}_students`]);
-        if (remote[`${hubId}_facilitators`]) setFacilitators(remote[`${hubId}_facilitators`]);
+      const { data } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
+      if (data) {
+        data.forEach(row => {
+          if (row.id === `${hubId}_settings`) setSettings(row.payload);
+          if (row.id === `${hubId}_students`) setStudents(row.payload);
+          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload);
+        });
       }
-    } catch (err) {
-      console.error("Institutional data node fetch failed.");
-    } finally {
-      setIsInitializing(false);
-    }
+    } catch (err) { console.error("Institutional data fetch failed."); }
+    finally { setIsInitializing(false); }
   };
 
   useEffect(() => { fetchRegistry(); }, [fetchRegistry]);
 
-  const handleSettingChange = (key: keyof GlobalSettings, value: any) => { setSettings(prev => ({ ...prev, [key]: value })); };
-  const bulkUpdateSettings = useCallback((updates: Partial<GlobalSettings>) => { setSettings(prev => ({ ...prev, ...updates })); }, []);
+  // Real-time Persistence Handshake
+  useEffect(() => {
+    let channel: any;
+    const initSync = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      channel = supabase.channel(`sync-${user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'uba_persistence', filter: `user_id=eq.${user.id}` }, (payload) => {
+        const newRow = payload.new as any;
+        if (!newRow) return;
+        const hubId = settings.schoolNumber;
+        if (newRow.id === `${hubId}_settings`) setSettings(newRow.payload);
+        if (newRow.id === `${hubId}_students`) setStudents(newRow.payload);
+        if (newRow.id === `${hubId}_facilitators`) setFacilitators(newRow.payload);
+      }).subscribe();
+    };
+    initSync();
+    return () => { if (channel) channel.unsubscribe(); };
+  }, [settings.schoolNumber]);
 
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
     const staffNames: Record<string, string> = {};
     Object.keys(facilitators).forEach(k => { staffNames[k] = facilitators[k].name; });
     const processed = processStudentData(s, students, staffNames, settings);
-    const avgAgg = processed.length > 0 ? processed.reduce((sum, st) => sum + st.bestSixAggregate, 0) / processed.length : 0;
+    const avgAgg = processed.reduce((sum, st) => sum + st.bestSixAggregate, 0) / (processed.length || 1);
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
   }, [students, facilitators, settings]);
 
   const handleSave = useCallback(async () => {
     const hubId = settings.schoolNumber;
-    if (!hubId) {
-      alert("Institutional identity missing. Sync aborted.");
-      return;
-    }
-
-    // AUTH GUARD: Check session before attempt to satisfy RLS
+    if (!hubId) return;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert("Session Expired: Re-authentication required to write to cloud.");
-      return;
-    }
-    
-    const timestamp = new Date().toISOString();
+    if (!user) return;
+    const ts = new Date().toISOString();
     const shards = [
-      { id: `${hubId}_settings`, payload: settings, last_updated: timestamp, user_id: user.id },
-      { id: `${hubId}_students`, payload: students, last_updated: timestamp, user_id: user.id },
-      { id: `${hubId}_facilitators`, payload: facilitators, last_updated: timestamp, user_id: user.id }
+      { id: `${hubId}_settings`, payload: settings, user_id: user.id, last_updated: ts },
+      { id: `${hubId}_students`, payload: students, user_id: user.id, last_updated: ts },
+      { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts }
     ];
+    await supabase.from('uba_persistence').upsert(shards);
+    const regEntry = { id: hubId, name: settings.schoolName, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts };
+    await supabase.from('uba_persistence').upsert({ id: `registry_${hubId}`, payload: [regEntry], user_id: user.id, last_updated: ts });
+  }, [settings, students, facilitators, classAvgAggregate]);
 
-    try {
-      const { error } = await supabase.from('uba_persistence').upsert(shards, { onConflict: 'id' });
-      if (error) throw error;
-      
-      // Update the specific registry shard for this hub
-      const myEntry = globalRegistry.find(r => r.id === hubId) || {
-        id: hubId, name: settings.schoolName, registrant: settings.registrantName || 'Unknown',
-        accessCode: settings.accessCode || '', enrollmentDate: new Date().toLocaleDateString(),
-        studentCount: students.length, avgAggregate: classAvgAggregate, performanceHistory: [],
-        status: 'active' as const, lastActivity: timestamp
-      };
+  // Auto-Sync Particulars (Debounced)
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => { handleSave(); }, 1500);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [settings.schoolName, settings.schoolAddress, settings.schoolNumber, settings.examTitle]);
 
-      const updatedEntry = { ...myEntry, studentCount: students.length, lastActivity: timestamp, avgAggregate: classAvgAggregate };
-      
-      await supabase.from('uba_persistence').upsert({ 
-        id: `registry_${hubId}`, 
-        payload: [updatedEntry], 
-        last_updated: timestamp, 
-        user_id: user.id 
-      });
-
-      alert("Academy records successfully mirrored to cloud node.");
-    } catch (err: any) {
-      console.error(err);
-      alert("Critical Sync Error: " + (err.message || "Network Restriction Active"));
-    }
-  }, [settings, students, facilitators, globalRegistry, classAvgAggregate]);
-
-  const handleRegistrationComplete = (data: any) => {
-    setPostRegistrationData(data);
-    setIsRegistering(false);
-    fetchRegistry();
-  };
-
-  const onLoadDummyData = () => {
-    const { students: s, resourcePortal: rp, mockSnapshots: ms } = generateFullDemoSuite();
-    setStudents(s);
-    bulkUpdateSettings({ resourcePortal: rp, mockSnapshots: ms });
-  };
-
-  const clearData = () => {
-    if(window.confirm("Switch to Real Mode? This clears the demo buffer. Ensure particulars are set.")) {
-        setStudents(RAW_STUDENTS);
-        setFacilitators({});
-        handleSave();
-    }
-  };
-
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
-        <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div>
-        <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Secure Hub Connection</p>
-      </div>
-    );
-  }
+  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500"><div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Node Handshake</p></div>;
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900 via-slate-900 to-black">
         {isRegistering ? (
-          <SchoolRegistrationPortal 
-            settings={settings} onBulkUpdate={bulkUpdateSettings} onSave={handleSave}
-            onComplete={handleRegistrationComplete} 
-            onSwitchToLogin={() => setIsRegistering(false)}
-          />
+          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSave} onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); fetchRegistry(); }} onSwitchToLogin={() => setIsRegistering(false)} />
         ) : (
-          <LoginPortal 
-            settings={settings} facilitators={facilitators} processedStudents={processedStudents} globalRegistry={globalRegistry}
-            initialCredentials={postRegistrationData}
-            onLoginSuccess={(hubId) => { loadSchoolSession(hubId); setIsAuthenticated(true); }} 
-            onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(name, subject, hubId) => { 
-               loadSchoolSession(hubId).then(() => {
-                 setIsFacilitator(true); setActiveFacilitator({ name, subject }); setIsAuthenticated(true); setViewMode('master'); 
-               });
-            }}
-            onPupilLogin={(id, hubId) => { 
-               loadSchoolSession(hubId).then(() => {
-                  const s = processedStudents.find(p => p.id === id); 
-                  if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); }
-               });
-            }}
-            onSwitchToRegister={() => setIsRegistering(true)}
-          />
+          <LoginPortal settings={settings} processedStudents={processedStudents} globalRegistry={globalRegistry} initialCredentials={postRegistrationData} onLoginSuccess={(id) => { loadSchoolSession(id); setIsAuthenticated(true); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} onSwitchToRegister={() => setIsRegistering(true)} />
         )}
       </div>
     );
@@ -246,9 +175,7 @@ const App: React.FC = () => {
               <button onClick={() => setViewMode('reports')} className={`px-3 py-1 rounded transition ${viewMode === 'reports' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Pupil Reports</button>
               <button onClick={() => setViewMode('management')} className={`px-3 py-1 rounded transition ${viewMode === 'management' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Mgmt Desk</button>
             </>
-          ) : (
-            <button onClick={() => setViewMode('pupil_hub')} className={`px-3 py-1 rounded transition ${viewMode === 'pupil_hub' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>My Dashboard</button>
-          )}
+          ) : <button onClick={() => setViewMode('pupil_hub')} className={`px-3 py-1 rounded transition ${viewMode === 'pupil_hub' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>My Dashboard</button>}
         </div>
         <div className="flex gap-2">
            {!isPupil && <button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Cloud Sync</button>}
@@ -258,29 +185,21 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-100 p-4 md:p-8">
-        {viewMode === 'master' && !isPupil && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={handleSettingChange} facilitators={facilitators} isFacilitator={isFacilitator} />}
-        {viewMode === 'series' && !isPupil && <SeriesBroadSheet students={students} settings={settings} onSettingChange={handleSettingChange} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />}
+        {viewMode === 'master' && !isPupil && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />}
+        {viewMode === 'series' && !isPupil && <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />}
         {viewMode === 'reports' && !isPupil && (
           <div className="space-y-8">
             <div className="no-print mb-4"><input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10 font-black" /></div>
             {processedStudents.filter(s => s.name.toLowerCase().includes(reportSearchTerm.toLowerCase())).map(student => (
-              <ReportCard key={student.id} student={student} stats={stats} settings={settings} onSettingChange={handleSettingChange} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />
+              <ReportCard key={student.id} student={student} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />
             ))}
           </div>
         )}
         {viewMode === 'management' && !isPupil && (
-          <ManagementDesk 
-            students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} 
-            subjects={SUBJECT_LIST} settings={settings} onSettingChange={handleSettingChange} 
-            onBulkUpdate={bulkUpdateSettings} onSave={handleSave} processedSnapshot={processedStudents} 
-            onLoadDummyData={onLoadDummyData} onClearData={clearData} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator}
-          />
+          <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u) => setSettings(p=>({...p,...u}))} onSave={handleSave} processedSnapshot={processedStudents} onLoadDummyData={() => { const d = generateFullDemoSuite(); setStudents(d.students); setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); }} onClearData={() => { if(window.confirm("Clear Data?")){ setStudents(RAW_STUDENTS); setFacilitators({}); handleSave(); }}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />
         )}
         {viewMode === 'pupil_hub' && isPupil && activePupil && (
-          <PupilDashboard 
-            student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} 
-            totalEnrolled={processedStudents.length} onSettingChange={handleSettingChange} globalRegistry={globalRegistry}
-          />
+          <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} />
         )}
       </div>
     </div>

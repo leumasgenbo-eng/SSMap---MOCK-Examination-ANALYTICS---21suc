@@ -12,23 +12,23 @@ interface ReportBrandingHeaderProps {
 
 const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, onSettingChange, reportTitle, subtitle, isLandscape = false }) => {
   return (
-    <div className={`text-center relative border-b-[6px] border-double border-blue-900 pb-6 mb-8 w-full ${isLandscape ? 'px-4' : 'px-2'}`}>
+    <div className={`text-center relative border-b-[8px] border-double border-blue-900 pb-8 mb-8 w-full ${isLandscape ? 'px-6' : 'px-4'}`}>
       {/* Academy Logo */}
       {settings.schoolLogo && (
-        <div className="absolute top-0 left-0 w-20 h-20 print:w-16 print:h-16 no-print">
-          <img src={settings.schoolLogo} alt="Logo" className="w-full h-full object-contain" />
+        <div className="absolute top-0 left-0 w-24 h-24 print:w-20 print:h-20 flex items-center justify-center">
+          <img src={settings.schoolLogo} alt="Academy Logo" className="max-w-full max-h-full object-contain" />
         </div>
       )}
       
       {/* Sync Status - No Print */}
-      <div className="absolute top-0 right-0 no-print flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-        <span className="text-[8px] font-black text-blue-900 uppercase tracking-widest">Hub Node: {settings.schoolNumber}</span>
+      <div className="absolute top-0 right-0 no-print flex items-center gap-3 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm">
+        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+        <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">NETWORK NODE: {settings.schoolNumber}</span>
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         {/* Editable Academy Name */}
-        <h1 className={`${isLandscape ? 'text-4xl' : 'text-3xl'} font-black text-blue-950 tracking-tighter uppercase leading-none`}>
+        <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black text-blue-950 tracking-tighter uppercase leading-tight`}>
           <EditableField 
             value={settings.schoolName} 
             onChange={(v) => onSettingChange('schoolName', v)} 
@@ -38,7 +38,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
         </h1>
 
         {/* Editable Address */}
-        <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em]">
+        <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed">
           <EditableField 
             value={settings.schoolAddress} 
             onChange={(v) => onSettingChange('schoolAddress', v)} 
@@ -47,32 +47,46 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
           />
         </p>
 
-        {/* Identity & Registry Badge */}
-        <div className="pt-2 flex justify-center items-center gap-4">
-          <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-5 py-1 rounded-full border border-blue-100 uppercase tracking-[0.3em]">
-            INSTITUTIONAL HUB ID: <EditableField value={settings.schoolNumber} onChange={(v) => onSettingChange('schoolNumber', v)} className="inline-block" />
-          </span>
+        {/* Contact Particulars */}
+        <div className="flex justify-center items-center gap-6 text-[10px] font-black text-blue-800 uppercase tracking-widest mt-1">
+          <div className="flex items-center gap-1.5">
+            <span>TEL:</span>
+            <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="PHONE..." />
+          </div>
+          <div className="w-1.5 h-1.5 bg-blue-100 rounded-full"></div>
+          <div className="flex items-center gap-1.5">
+            <span>EMAIL:</span>
+            <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="EMAIL..." className="lowercase" />
+          </div>
         </div>
 
         {/* Secondary Report Title */}
-        <div className="mt-4 bg-red-50 py-2.5 border-y border-red-100 shadow-sm">
-          <h2 className="text-xl font-black text-red-700 uppercase tracking-tight">
+        <div className="mt-6 bg-red-50 py-3.5 border-y border-red-100 shadow-sm relative overflow-hidden group">
+          <div className="absolute inset-y-0 left-0 w-1 bg-red-600"></div>
+          <div className="absolute inset-y-0 right-0 w-1 bg-red-600"></div>
+          <h2 className="text-2xl font-black text-red-700 uppercase tracking-tight">
             <EditableField value={settings.examTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />
           </h2>
           {subtitle && (
-            <p className="text-[9px] font-black text-red-900 tracking-[0.5em] uppercase mt-1">
+            <p className="text-[10px] font-black text-red-900 tracking-[0.5em] uppercase mt-2 opacity-80">
               {subtitle}
             </p>
           )}
         </div>
 
         {/* Academic Context Ledger */}
-        <div className="flex justify-center gap-8 text-[11px] font-black text-gray-800 uppercase tracking-widest mt-4">
-          <div className="flex items-center gap-2">
-            <span className="bg-blue-900 text-white px-4 py-0.5 rounded shadow-sm">{settings.termInfo}</span>
+        <div className="flex justify-center items-center gap-10 text-[12px] font-black text-gray-800 uppercase tracking-widest mt-6">
+          <div className="flex items-center gap-3">
+            <span className="bg-blue-900 text-white px-5 py-1 rounded shadow-lg">{settings.termInfo}</span>
           </div>
-          <span className="border-x border-gray-200 px-6">SERIES: {settings.activeMock}</span>
-          <span className="italic opacity-60">ACADEMIC YEAR: {settings.academicYear}</span>
+          <div className="flex items-center gap-2 border-x border-gray-200 px-8">
+             <span className="text-[9px] text-gray-400">SERIES:</span>
+             <span>{settings.activeMock}</span>
+          </div>
+          <div className="flex items-center gap-2">
+             <span className="text-[9px] text-gray-400">AY:</span>
+             <span className="italic">{settings.academicYear}</span>
+          </div>
         </div>
       </div>
     </div>

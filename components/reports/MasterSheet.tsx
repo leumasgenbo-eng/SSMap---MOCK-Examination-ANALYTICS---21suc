@@ -44,22 +44,6 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
     }
   };
 
-  const handleShareStats = () => {
-    const topStudent = students[0];
-    const classMean = (Object.values(stats.subjectMeans) as number[]).reduce((a, b) => a + b, 0) / (Object.keys(stats.subjectMeans).length || 1);
-    
-    const message = `*${settings.schoolName} - OFFICIAL BROAD SHEET SUMMARY*\n` +
-                    `*Assessment:* ${settings.activeMock}\n` +
-                    `----------------------------------\n` +
-                    `• *Cohort Size:* ${students.length} Pupils\n` +
-                    `• *Cohort Mean:* ${classMean.toFixed(1)}%\n` +
-                    `• *Top Performing Pupil:* ${topStudent?.name || 'N/A'} (Agg: ${topStudent?.bestSixAggregate || 'N/A'})\n` +
-                    `----------------------------------\n` +
-                    `_Full Broad Sheet available in Academy Hub_`;
-    
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-  };
-
   return (
     <div className="bg-white p-4 print:p-0 min-h-screen max-w-[420mm] mx-auto overflow-hidden print:overflow-visible print:max-w-none">
       
@@ -79,13 +63,6 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
           </div>
           
           <div className="flex gap-3">
-             <button 
-               onClick={handleShareStats}
-               className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 transition-all active:scale-95"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-7.6 8.38 8.38 0 0 1 3.8.9L21 3.5Z"></path></svg>
-               Share Summary
-             </button>
              <button 
                onClick={handleDownloadPDF}
                disabled={isGenerating}
@@ -118,7 +95,7 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
       </div>
 
       <div id="broadsheet-export-container">
-        {/* Unified Academy Branding Header */}
+        {/* Unified Academy Branding Header - Editable particulars of UNITED BAYLOR ACADEMY */}
         <ReportBrandingHeader 
           settings={settings} 
           onSettingChange={onSettingChange} 
@@ -129,51 +106,23 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
 
         {/* Dynamic Content Rendering */}
         <div className="min-h-[400px]">
-          {sheetView === 'composite' && (
-            <CompositeSheet 
-              students={students} 
-              stats={stats} 
-              settings={settings} 
-              facilitators={facilitators} 
-              isFacilitator={isFacilitator}
-            />
-          )}
-          {sheetView === 'sectionA' && (
-            <SupplementarySheet 
-              students={students} 
-              stats={stats} 
-              settings={settings} 
-              section="sectionA" 
-            />
-          )}
-          {sheetView === 'sectionB' && (
-            <SupplementarySheet 
-              students={students} 
-              stats={stats} 
-              settings={settings} 
-              section="sectionB" 
-            />
-          )}
-          {sheetView === 'analytics' && (
-            <InstitutionalAnalytics 
-              students={students} 
-              stats={stats} 
-              settings={settings} 
-              facilitators={facilitators} 
-              onSettingChange={onSettingChange}
-            />
-          )}
+          {sheetView === 'composite' && <CompositeSheet students={students} stats={stats} settings={settings} facilitators={facilitators} isFacilitator={isFacilitator} />}
+          {sheetView === 'sectionA' && <SupplementarySheet students={students} stats={stats} settings={settings} section="sectionA" />}
+          {sheetView === 'sectionB' && <SupplementarySheet students={students} stats={stats} settings={settings} section="sectionB" />}
+          {sheetView === 'analytics' && <InstitutionalAnalytics students={students} stats={stats} settings={settings} facilitators={facilitators} onSettingChange={onSettingChange} />}
         </div>
 
-        {/* Validation Footer */}
+        {/* Validation Footer - Fully Editable Particulars */}
         <div className="flex justify-between items-end pt-12 pb-4 border-t-2 border-blue-900 mt-12 page-break-inside-avoid">
            <div className="flex flex-col items-center">
-              <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">Examination Registry</div>
+              <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
+                 <EditableField value="Examination Registry" onChange={() => {}} className="text-center w-full" />
+              </div>
               <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Verified Data Snapshot</p>
            </div>
            <div className="flex flex-col items-center">
               <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
-                 <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center" />
+                 <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center w-full" />
               </div>
               <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Academy Director's Seal</p>
            </div>

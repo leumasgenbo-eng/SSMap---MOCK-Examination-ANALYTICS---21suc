@@ -3,77 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SSMap - MOCK Examination ANALYTICS | UNITED BAYLOR ACADEMY</title>
+    <title>UBA - INSTITUTIONAL HUB | UNITED BAYLOR ACADEMY</title>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
       @media print {
-        @page { 
-          margin: 0; 
-        }
-        
-        /* Landscape for Broad Sheets */
-        .print-landscape {
-          @page { size: A4 landscape; margin: 0.5cm; }
-        }
-        
-        /* Portrait for Reports (Default) */
-        .print-portrait {
-          @page { size: A4 portrait; margin: 0; }
-        }
-        
+        @page { margin: 0; }
+        .print-landscape { @page { size: A4 landscape; margin: 0.5cm; } }
+        .print-portrait { @page { size: A4 portrait; margin: 0; } }
         .no-print { display: none !important; }
         .page-break { page-break-after: always; }
-        
         body { 
           -webkit-print-color-adjust: exact !important; 
           print-color-adjust: exact !important;
           background-color: white !important;
           margin: 0 !important;
-          padding: 0 !important;
         }
-
-        /* Ensure containers expand fully for print */
-        .print-full-width {
-          width: 100% !important;
-          max-width: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          transform: none !important;
-        }
-
-        /* Force A4 containers to maintain aspect ratio on print */
-        [id^="report-"] {
-           width: 210mm !important;
-           height: 297mm !important;
-           margin: 0 auto !important;
-           border: none !important;
-           box-shadow: none !important;
-           padding: 10mm !important;
-        }
-
-        /* Prevent clipping */
-        .overflow-x-auto {
-          overflow: visible !important;
-        }
+        .overflow-x-auto { overflow: visible !important; }
       }
-      
-      /* Web view scrollbar styling */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #1e3a8a;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #172554;
-      }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: #f1f1f1; }
+      ::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 4px; }
     </style>
   <script type="importmap">
 {
@@ -83,7 +34,7 @@
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
     "vite": "https://aistudiocdn.com/vite@^7.2.6",
     "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.91.1"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.1"
   }
 }
 </script>
