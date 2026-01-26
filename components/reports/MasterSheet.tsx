@@ -45,7 +45,7 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
 
   const handleShareStats = () => {
     const topStudent = students[0];
-    const classMean = (Object.values(stats.subjectMeans) as number[]).reduce((a, b) => a + b, 0) / Object.keys(stats.subjectMeans).length;
+    const classMean = (Object.values(stats.subjectMeans) as number[]).reduce((a, b) => a + b, 0) / (Object.keys(stats.subjectMeans).length || 1);
     
     const message = `*${settings.schoolName} - OFFICIAL BROAD SHEET SUMMARY*\n` +
                     `*Assessment:* ${settings.activeMock}\n` +
@@ -123,10 +123,10 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
             <EditableField value={settings.schoolName} onChange={(v) => onSettingChange('schoolName', v)} className="text-center w-full" />
           </h1>
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
-            <EditableField value={settings.schoolAddress || "CULBURY ACADEMY ADDRESS"} onChange={(v) => onSettingChange('schoolAddress', v)} className="text-center w-full" />
+            <EditableField value={settings.schoolAddress || "ACADEMY ADDRESS, REGION"} onChange={(v) => onSettingChange('schoolAddress', v)} className="text-center w-full" />
           </p>
           <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 inline-block mb-3 uppercase tracking-widest">
-             Hub ID: <EditableField value={settings.schoolNumber || "CBA-2025-001"} onChange={(v) => onSettingChange('schoolNumber', v)} />
+             Hub ID: <EditableField value={settings.schoolNumber || "UBA-2025-XXX"} onChange={(v) => onSettingChange('schoolNumber', v)} />
           </div>
           <h2 className="text-lg font-black uppercase text-red-700 tracking-tight bg-red-50 py-1 border-y border-red-100 mb-4">
              <EditableField value={settings.examTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />
@@ -171,6 +171,7 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
               stats={stats} 
               settings={settings} 
               facilitators={facilitators} 
+              onSettingChange={onSettingChange}
             />
           )}
         </div>

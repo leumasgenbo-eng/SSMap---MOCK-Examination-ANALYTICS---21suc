@@ -20,8 +20,8 @@ const MOCK_SERIES = Array.from({ length: 10 }, (_, i) => `MOCK ${i + 1}`);
 const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
-  schoolNumber: "", 
-  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
+  schoolNumber: "UBA-2026-7448", 
+  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
@@ -29,13 +29,13 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   attendanceTotal: "60",
   startDate: "10-02-2025",
   endDate: "15-02-2025",
-  headTeacherName: "ACADEMY DIRECTOR",
+  headTeacherName: "SA",
   reportDate: new Date().toLocaleDateString(),
   schoolContact: "+233 24 350 4091",
   schoolEmail: "leumasgenbo@gmail.com",
-  registrantName: "",
-  registrantEmail: "",
-  accessCode: "", 
+  registrantName: "SA",
+  registrantEmail: "leumasgenbo@gmail.com",
+  accessCode: "SEC-C208VC85", 
   gradingThresholds: DEFAULT_THRESHOLDS,
   categoryThresholds: DEFAULT_CATEGORY_THRESHOLDS,
   normalizationConfig: DEFAULT_NORMALIZATION,
@@ -65,6 +65,7 @@ const App: React.FC = () => {
   const [activeFacilitator, setActiveFacilitator] = useState<{ name: string; subject: string } | null>(null);
   const [activePupil, setActivePupil] = useState<ProcessedStudent | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [postRegistrationData, setPostRegistrationData] = useState<any>(null);
   
   // Data State
   const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>([]);
@@ -76,9 +77,11 @@ const App: React.FC = () => {
   const fetchRegistry = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('uba_persistence').select('payload').eq('id', 'registry').single();
-      if (data) setGlobalRegistry(data.payload);
+      if (data && data.payload) {
+         setGlobalRegistry(data.payload as SchoolRegistryEntry[]);
+      }
     } catch (err) {
-      console.warn("Registry sync unavailable.");
+      console.warn("Registry sync unavailable. Using local buffer.");
     } finally {
       setIsInitializing(false);
     }
@@ -134,7 +137,6 @@ const App: React.FC = () => {
     try {
       await supabase.from('uba_persistence').upsert(shards, { onConflict: 'id' });
       
-      // Update entry in global registry
       const nextRegistry = globalRegistry.map(r => r.id === hubId ? { ...r, studentCount: students.length, lastActivity: timestamp } : r);
       await supabase.from('uba_persistence').upsert({ id: 'registry', payload: nextRegistry, last_updated: timestamp });
       setGlobalRegistry(nextRegistry);
@@ -144,6 +146,18 @@ const App: React.FC = () => {
       alert("Cloud Sync Restricted.");
     }
   }, [settings, students, facilitators, globalRegistry]);
+
+  const handleRegistrationComplete = (data: any) => {
+    setPostRegistrationData(data);
+    setIsRegistering(false);
+    fetchRegistry();
+  };
+
+  const onLoadDummyData = () => {
+    const { students: s, resourcePortal: rp, mockSnapshots: ms } = generateFullDemoSuite();
+    setStudents(s);
+    bulkUpdateSettings({ resourcePortal: rp, mockSnapshots: ms });
+  };
 
   if (isInitializing) {
     return (
@@ -160,12 +174,13 @@ const App: React.FC = () => {
         {isRegistering ? (
           <SchoolRegistrationPortal 
             settings={settings} onBulkUpdate={bulkUpdateSettings} onSave={handleSave}
-            onComplete={() => { setIsRegistering(false); fetchRegistry(); }} 
+            onComplete={handleRegistrationComplete} 
             onSwitchToLogin={() => setIsRegistering(false)}
           />
         ) : (
           <LoginPortal 
             settings={settings} facilitators={facilitators} processedStudents={processedStudents} globalRegistry={globalRegistry}
+            initialCredentials={postRegistrationData}
             onLoginSuccess={(hubId) => { loadSchoolSession(hubId); setIsAuthenticated(true); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
             onFacilitatorLogin={(name, subject, hubId) => { 
@@ -215,7 +230,7 @@ const App: React.FC = () => {
         {viewMode === 'series' && !isPupil && <SeriesBroadSheet students={students} settings={settings} onSettingChange={handleSettingChange} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />}
         {viewMode === 'reports' && !isPupil && (
           <div className="space-y-8">
-            <div className="no-print mb-4"><input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10" /></div>
+            <div className="no-print mb-4"><input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10 font-black" /></div>
             {processedStudents.filter(s => s.name.toLowerCase().includes(reportSearchTerm.toLowerCase())).map(student => (
               <ReportCard key={student.id} student={student} stats={stats} settings={settings} onSettingChange={handleSettingChange} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />
             ))}
@@ -226,7 +241,7 @@ const App: React.FC = () => {
             students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} 
             subjects={SUBJECT_LIST} settings={settings} onSettingChange={handleSettingChange} 
             onBulkUpdate={bulkUpdateSettings} onSave={handleSave} processedSnapshot={processedStudents} 
-            onLoadDummyData={() => {}} onClearData={() => {}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator}
+            onLoadDummyData={onLoadDummyData} onClearData={() => {}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator}
           />
         )}
         {viewMode === 'pupil_hub' && isPupil && activePupil && (

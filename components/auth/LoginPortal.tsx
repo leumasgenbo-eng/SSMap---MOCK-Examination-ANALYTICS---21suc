@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GlobalSettings, StaffAssignment, ProcessedStudent, SchoolRegistryEntry } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
 
@@ -7,6 +7,7 @@ interface LoginPortalProps {
   facilitators?: Record<string, StaffAssignment>;
   processedStudents?: ProcessedStudent[];
   globalRegistry: SchoolRegistryEntry[];
+  initialCredentials?: any;
   onLoginSuccess: (hubId: string) => void;
   onSuperAdminLogin: () => void;
   onFacilitatorLogin: (name: string, subject: string, hubId: string) => void;
@@ -14,9 +15,9 @@ interface LoginPortalProps {
   onSwitchToRegister: () => void;
 }
 
-const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC";
+const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC";
 
-const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, processedStudents, globalRegistry, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
+const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, processedStudents, globalRegistry, initialCredentials, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
   const [credentials, setCredentials] = useState({
     schoolName: '',
@@ -30,9 +31,20 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     pupilIndex: ''
   });
   
+  useEffect(() => {
+    if (initialCredentials) {
+      setCredentials(prev => ({
+        ...prev,
+        schoolName: initialCredentials.schoolName || '',
+        schoolNumber: initialCredentials.schoolNumber || '',
+        registrant: initialCredentials.registrantName || '',
+        accessKey: initialCredentials.accessCode || ''
+      }));
+    }
+  }, [initialCredentials]);
+
   const [error, setError] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  
   const [showKey, setShowKey] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -54,21 +66,19 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
       if (authMode === 'ADMIN') {
         if (schoolEntry && 
             schoolEntry.accessCode.toUpperCase() === inputKey && 
+            schoolEntry.name.toUpperCase() === credentials.schoolName.trim().toUpperCase() &&
             schoolEntry.registrant.toUpperCase() === credentials.registrant.trim().toUpperCase()) {
           onLoginSuccess(hubId);
         } else {
           failAuth();
         }
       } else if (authMode === 'FACILITATOR') {
-        // Facilitator verification would usually need more shard data, 
-        // but we first verify the school ID exists in registry
         if (schoolEntry) {
           onFacilitatorLogin(credentials.facilitatorName.trim().toUpperCase(), credentials.subject, hubId);
         } else {
           failAuth();
         }
       } else {
-        // Pupil verification
         if (schoolEntry) {
           onPupilLogin(parseInt(credentials.pupilIndex) || 0, hubId);
         } else {
@@ -91,20 +101,23 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         {isAuthenticating && (
           <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center space-y-6">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Authenticating...</p>
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Establishing Node Handshake...</p>
           </div>
         )}
 
         <div className="text-center relative mb-10">
-          <div className="w-20 h-20 bg-blue-900 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl">
+          <div className="inline-block px-5 py-1.5 rounded-full bg-blue-900 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6 shadow-xl ring-4 ring-blue-50">
+            {credentials.schoolName || 'Awaiting Node'}
+          </div>
+          <div className="w-20 h-20 bg-white border-2 border-slate-100 text-blue-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-lg transform hover:scale-105 transition-transform">
              <img src={ACADEMY_ICON} alt="Academy Shield" className="w-12 h-12 object-contain" />
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Access Gate</h2>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-3">SS-Map Unified Academy Hub</p>
+          <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.4em] mt-4">SS-MAP Unified Academy Hub Node</p>
         </div>
 
         <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border border-slate-200">
-          <button onClick={() => setAuthMode('ADMIN')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'ADMIN' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-500'}`}>Admin Hub</button>
+          <button onClick={() => setAuthMode('ADMIN')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'ADMIN' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-50'}`}>Admin Hub</button>
           <button onClick={() => setAuthMode('FACILITATOR')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'FACILITATOR' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-500'}`}>Staff</button>
           <button onClick={() => setAuthMode('PUPIL')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'PUPIL' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-500'}`}>Candidate</button>
         </div>
@@ -112,20 +125,25 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-4">
             <div className="space-y-1">
+              <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Institution Name</label>
+              <input type="text" value={credentials.schoolName} onChange={(e) => setCredentials({...credentials, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="ENTER NAME..." required />
+            </div>
+
+            <div className="space-y-1">
               <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Institution Hub ID</label>
-              <input type="text" value={credentials.schoolNumber} onChange={(e) => setCredentials({...credentials, schoolNumber: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="E.G. UBA-2025-001" required />
+              <input type="text" value={credentials.schoolNumber} onChange={(e) => setCredentials({...credentials, schoolNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="ID-XXXX-XXXX" required />
             </div>
 
             {authMode === 'ADMIN' && (
               <>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Registered Administrator</label>
-                  <input type="text" value={credentials.registrant} onChange={(e) => setCredentials({...credentials, registrant: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="FULL NAME..." required />
+                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Registered Director</label>
+                  <input type="text" value={credentials.registrant} onChange={(e) => setCredentials({...credentials, registrant: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="IDENTITY..." required />
                 </div>
                 <div className="space-y-1 relative">
                   <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">Hub Access Key</label>
                   <div className="relative">
-                    <input type={showKey ? "text" : "password"} value={credentials.accessKey} onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase pr-12" placeholder="SSMAP-SEC-••••••••" required />
+                    <input type={showKey ? "text" : "password"} value={credentials.accessKey} onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase pr-12" placeholder="SEC-••••••••" required />
                     <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                        {showKey ? '👁️' : '🔒'}
                     </button>
@@ -163,7 +181,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
             )}
           </div>
 
-          {error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100">Auth Failed: Invalid Hub Particulars</div>}
+          {error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100">Auth Failed: Access Revoked</div>}
 
           <button type="submit" className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 mt-4">
             Verify Hub Credentials

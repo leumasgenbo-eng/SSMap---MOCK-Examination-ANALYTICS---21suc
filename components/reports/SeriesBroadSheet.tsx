@@ -36,17 +36,21 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
   return (
     <div className="bg-white p-6 print:p-0 min-h-screen max-w-full">
       {/* Universal Academy Particulars Header */}
-      <div className="text-center mb-10 space-y-2 no-print border-b-4 border-blue-900 pb-6">
+      <div className="text-center mb-10 space-y-2 border-b-4 border-blue-900 pb-6">
         <h1 className="text-4xl font-black uppercase text-blue-950 tracking-tighter">
           <EditableField value={settings.schoolName} onChange={(v) => onSettingChange('schoolName', v)} className="text-center w-full font-black" />
         </h1>
         <p className="text-xs font-black text-gray-400 uppercase tracking-[0.4em]">
-          <EditableField value={settings.schoolAddress || "CULBURY ACADEMY ADDRESS"} onChange={(v) => onSettingChange('schoolAddress', v)} className="text-center w-full" />
+          <EditableField value={settings.schoolAddress || "ACADEMY ADDRESS, REGION"} onChange={(v) => onSettingChange('schoolAddress', v)} className="text-center w-full" />
         </p>
         <div className="flex justify-center items-center gap-4 mt-4">
            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-5 py-1 rounded-full border border-blue-100 uppercase tracking-widest shadow-sm">
              Hub ID: <EditableField value={settings.schoolNumber || "UBA-2025-XXX"} onChange={(v) => onSettingChange('schoolNumber', v)} className="inline-block" />
            </span>
+           <div className="flex gap-2 items-center text-[10px] font-black text-gray-500 uppercase tracking-widest">
+              <span>Contact:</span>
+              <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} />
+           </div>
         </div>
         <div className="pt-4 flex flex-col items-center">
            <div className="bg-blue-900 text-white px-10 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.5em] shadow-2xl flex items-center gap-4">
@@ -127,7 +131,9 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
          </div>
          <div className="text-center w-[30%] border-t border-black pt-1">
             <span className="text-[9px] font-black uppercase text-gray-400">Academy Director</span>
-            <p className="text-[10px] font-black text-blue-900 uppercase truncate mt-1">{settings.headTeacherName}</p>
+            <p className="text-[10px] font-black text-blue-900 uppercase truncate mt-1">
+               <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center" />
+            </p>
          </div>
       </div>
     </div>
