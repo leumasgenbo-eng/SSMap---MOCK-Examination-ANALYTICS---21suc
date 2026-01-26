@@ -54,7 +54,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     setErrorMessage(null);
     
     const MASTER_KEY = "UBA-HQ-MASTER-2025";
-    const inputKey = credentials.accessKey.trim().toUpperCase();
+    const inputKey = (credentials.accessKey || "").trim().toUpperCase();
 
     // 1. Super Admin Bypass
     if (inputKey === MASTER_KEY) {
@@ -65,40 +65,57 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
       return;
     }
 
-    const hubId = credentials.schoolNumber.trim().toUpperCase();
+    const hubId = (credentials.schoolNumber || "").trim().toUpperCase();
 
     try {
       // 2. SUPABASE AUTH HANDSHAKE (Satisfies Authenticated RLS)
+      const email = (credentials.registrant || "").trim().toLowerCase().includes('@') 
+        ? (credentials.registrant || "").trim() 
+        : `${hubId.toLowerCase()}@ssmap.app`;
+      
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: credentials.registrant.trim().toLowerCase().includes('@') ? credentials.registrant.trim() : `${hubId.toLowerCase()}@ssmap.app`,
-        password: credentials.accessKey.trim()
+        email,
+        password: (credentials.accessKey || "").trim()
       });
 
-      // 3. Locate Institutional Entry in Cloud Registry
-      const schoolEntry = globalRegistry.find(r => r.id.trim().toUpperCase() === hubId);
+      if (authError) throw new Error("Authentication failed: " + authError.message);
+
+      // 3. Direct Institutional Entry Verification as requested
+      const { data, error: registryError } = await supabase
+        .from('uba_persistence')
+        .select('payload')
+        .eq('id', `registry_${hubId}`)
+        .single();
+
+      if (registryError || !data || !data.payload) {
+         throw new Error("Hub ID not found in network registry.");
+      }
+
+      const rawEntry = Array.isArray(data.payload) ? data.payload[0] : data.payload;
+      const schoolEntry = rawEntry as SchoolRegistryEntry;
+
+      if (!schoolEntry) throw new Error("Malformed registry entry.");
 
       if (authMode === 'ADMIN') {
-        if (schoolEntry && 
-            schoolEntry.accessCode.trim().toUpperCase() === inputKey && 
-            schoolEntry.name.trim().toUpperCase() === credentials.schoolName.trim().toUpperCase()) {
+        const storedKey = (schoolEntry.accessCode || "").trim().toUpperCase();
+        const storedName = (schoolEntry.name || "").trim().toUpperCase();
+        const inputName = (credentials.schoolName || "").trim().toUpperCase();
+
+        if (storedKey === inputKey && storedName === inputName) {
           setIsAuthenticating(false);
           onLoginSuccess(hubId);
         } else {
           throw new Error("Invalid institutional credentials.");
         }
       } else if (authMode === 'FACILITATOR') {
-        if (schoolEntry) {
           setIsAuthenticating(false);
-          onFacilitatorLogin(credentials.facilitatorName.trim().toUpperCase(), credentials.subject, hubId);
-        } else {
-          throw new Error("Target institution not found in registry.");
-        }
+          onFacilitatorLogin((credentials.facilitatorName || "").trim().toUpperCase(), credentials.subject, hubId);
       } else {
-        if (schoolEntry && credentials.pupilIndex) {
+        if (credentials.pupilIndex) {
           setIsAuthenticating(false);
           onPupilLogin(parseInt(credentials.pupilIndex) || 0, hubId);
         } else {
-          throw new Error("Identity verification failed.");
+          throw new Error("Candidate identification failed.");
         }
       }
     } catch (err: any) {

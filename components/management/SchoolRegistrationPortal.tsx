@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { GlobalSettings, SchoolRegistryEntry } from '../../types';
 
@@ -45,7 +44,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
   const handleEnrollment = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.schoolName.trim() || !formData.registrant.trim()) {
+    if (!(formData.schoolName || "").trim() || !(formData.registrant || "").trim()) {
       alert("Please provide the basic registration particulars.");
       return;
     }
@@ -57,7 +56,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     if (registryData) {
       const existingRegistry: SchoolRegistryEntry[] = JSON.parse(registryData);
       const isDuplicate = existingRegistry.some(r => 
-        r.name.trim().toLowerCase() === formData.schoolName.trim().toLowerCase()
+        (r.name || "").trim().toLowerCase() === (formData.schoolName || "").trim().toLowerCase()
       );
 
       if (isDuplicate) {
@@ -73,12 +72,12 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       const newKey = generateAccessKey();
 
       onBulkUpdate({
-        schoolName: formData.schoolName.trim().toUpperCase(),
-        schoolAddress: formData.location.trim().toUpperCase(),
-        registrantName: formData.registrant.trim().toUpperCase(),
-        registrantEmail: formData.registrantEmail.trim().toLowerCase(),
-        schoolEmail: formData.schoolEmail.trim().toLowerCase(),
-        schoolContact: formData.contact.trim(),
+        schoolName: (formData.schoolName || "").trim().toUpperCase(),
+        schoolAddress: (formData.location || "").trim().toUpperCase(),
+        registrantName: (formData.registrant || "").trim().toUpperCase(),
+        registrantEmail: (formData.registrantEmail || "").trim().toLowerCase(),
+        schoolEmail: (formData.schoolEmail || "").trim().toLowerCase(),
+        schoolContact: (formData.contact || "").trim(),
         schoolNumber: newID,
         accessCode: newKey,
         enrollmentDate: new Date().toLocaleDateString()
