@@ -35,7 +35,6 @@ const NetworkAnnualAuditReport: React.FC<NetworkAnnualAuditReportProps> = ({ reg
     registry.forEach(s => {
        if (!s.fullData) return;
        const data = s.fullData;
-       // Added type assertion to resolve 'unknown' error in facilitators loop
        (Object.entries(data.facilitators) as [string, StaffAssignment][]).forEach(([sub, staff]) => {
           if (!staff.name) return;
           facs.push({ name: staff.name, subject: sub, school: s.name, tei: 8.5 }); // Mock TEI for report
@@ -164,15 +163,15 @@ const NetworkAnnualAuditReport: React.FC<NetworkAnnualAuditReportProps> = ({ reg
          <div className="grid grid-cols-1 md:grid-cols-3 gap-20">
             <div className="text-center space-y-2">
                <div className="border-t-2 border-slate-900 pt-2 font-black uppercase text-[10px]">Registry Controller</div>
-               <p className="text-[8px] text-slate-400 italic">Data Persistence Validated</p>
+               <p className="text-[8px] text-gray-400 italic">Data Persistence Validated</p>
             </div>
             <div className="text-center space-y-2">
                <div className="border-t-2 border-slate-900 pt-2 font-black uppercase text-[10px]">Inspectorate General</div>
-               <p className="text-[8px] text-slate-400 italic">Instructional Integrity Verified</p>
+               <p className="text-[8px] text-gray-400 italic">Instructional Integrity Verified</p>
             </div>
             <div className="text-center space-y-2">
                <div className="border-t-2 border-slate-900 pt-2 font-black uppercase text-[10px]">Network Director</div>
-               <p className="text-[8px] text-slate-400 italic">Official Network Seal</p>
+               <p className="text-[8px] text-gray-400 italic">Official Network Seal</p>
             </div>
          </div>
       </div>

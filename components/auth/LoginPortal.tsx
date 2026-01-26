@@ -54,36 +54,44 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     const MASTER_KEY = "UBA-HQ-MASTER-2025";
     const inputKey = credentials.accessKey.trim().toUpperCase();
 
+    // 1. Super Admin Check
     if (inputKey === MASTER_KEY) {
-      setTimeout(() => onSuperAdminLogin(), 800);
+      setTimeout(() => {
+        setIsAuthenticating(false);
+        onSuperAdminLogin();
+      }, 800);
       return;
     }
 
     const hubId = credentials.schoolNumber.trim().toUpperCase();
     
-    // Check against global registry (which represents cloud data)
+    // 2. Locate Institutional Entry in Cloud Registry
     const schoolEntry = globalRegistry.find(r => r.id === hubId);
 
     setTimeout(() => {
       if (authMode === 'ADMIN') {
+        // Multi-factor Validation for Admin Hub
         if (schoolEntry && 
             schoolEntry.accessCode.toUpperCase() === inputKey && 
             schoolEntry.name.toUpperCase() === credentials.schoolName.trim().toUpperCase() &&
             schoolEntry.registrant.toUpperCase() === credentials.registrant.trim().toUpperCase()) {
+          setIsAuthenticating(false);
           onLoginSuccess(hubId);
         } else {
           failAuth();
         }
       } else if (authMode === 'FACILITATOR') {
+        // Valid Hub ID required for staff entry
         if (schoolEntry) {
-          // Facilitator login logic is more open but tied to a valid hub
+          setIsAuthenticating(false);
           onFacilitatorLogin(credentials.facilitatorName.trim().toUpperCase(), credentials.subject, hubId);
         } else {
           failAuth();
         }
       } else {
-        if (schoolEntry) {
-          // Pupil login logic tied to hub
+        // Valid Hub ID and numeric index required for pupils
+        if (schoolEntry && credentials.pupilIndex) {
+          setIsAuthenticating(false);
           onPupilLogin(parseInt(credentials.pupilIndex) || 0, hubId);
         } else {
           failAuth();
@@ -121,7 +129,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         </div>
 
         <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border border-slate-200">
-          <button onClick={() => setAuthMode('ADMIN')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'ADMIN' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-50'}`}>Admin Hub</button>
+          <button onClick={() => setAuthMode('ADMIN')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'ADMIN' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-500'}`}>Admin Hub</button>
           <button onClick={() => setAuthMode('FACILITATOR')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'FACILITATOR' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-500'}`}>Staff</button>
           <button onClick={() => setAuthMode('PUPIL')} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'PUPIL' ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-500'}`}>Candidate</button>
         </div>
