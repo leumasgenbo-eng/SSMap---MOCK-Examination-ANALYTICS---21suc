@@ -35,15 +35,17 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     setIsSyncing(true);
 
     try {
+      // 1. Fetch Latest Cloud Registry to prevent duplicates
       const { data: regData } = await supabase.from('uba_persistence').select('payload').eq('id', 'registry').single();
       const currentRegistry: SchoolRegistryEntry[] = regData?.payload || [];
 
       if (currentRegistry.some(r => r.name.toUpperCase() === formData.schoolName.trim().toUpperCase())) {
-        alert("This institution is already registered.");
+        alert("CRITICAL ERROR: This institution is already registered in the cloud registry. Duplicate enrollment is restricted.");
         setIsSyncing(false);
         return;
       }
 
+      // 2. Generate Unique Credentials
       const hubId = `UBA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const accessKey = `SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
@@ -60,9 +62,11 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         lastActivity: new Date().toISOString()
       };
 
+      // 3. Persist to Cloud Registry
       const nextRegistry = [...currentRegistry, newEntry];
       await supabase.from('uba_persistence').upsert({ id: 'registry', payload: nextRegistry, last_updated: new Date().toISOString() });
 
+      // 4. Set Local Settings and Save
       const newSettings = {
         schoolName: formData.schoolName.toUpperCase(),
         schoolAddress: formData.location.toUpperCase(),
@@ -71,7 +75,8 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         schoolEmail: formData.schoolEmail.toLowerCase(),
         schoolContact: formData.contact,
         schoolNumber: hubId,
-        accessCode: accessKey
+        accessCode: accessKey,
+        enrollmentDate: new Date().toLocaleDateString()
       };
 
       onBulkUpdate(newSettings);
@@ -79,9 +84,13 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       
       setRegisteredData(newSettings);
       setIsRegistered(true);
+      
+      // Ensure local state is synced to its specific cloud shard immediately
       setTimeout(() => onSave(), 500);
+
     } catch (err) {
-      alert("Registration failed. Check connectivity.");
+      console.error("Enrollment failed:", err);
+      alert("Registration failed. Please check your internet connection and try again.");
     } finally {
       setIsSyncing(false);
     }
@@ -100,8 +109,8 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                  `Location:         ${registeredData?.schoolAddress}\n` +
                  `School Email:     ${registeredData?.schoolEmail}\n` +
                  `Contact Node:     ${registeredData?.schoolContact}\n` +
-                 `Date Registered:  ${new Date().toLocaleDateString()}\n\n` +
-                 `* IMPORTANT: Save this file securely. Your Access Key is unique.`;
+                 `Date Registered:  ${registeredData?.enrollmentDate}\n\n` +
+                 `* IMPORTANT: Save this file securely. Your Access Key is unique to your school.`;
     
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -125,7 +134,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                  `Hub ID: ${registeredData?.schoolNumber}\n` +
                  `Director: ${registeredData?.registrantName}\n` +
                  `Access Key: ${registeredData?.accessCode}\n\n` +
-                 `Keep this email safe for all future logins.`;
+                 `Keep this email safe for all future logins. You can access the portal at your deployment URL.`;
     
     const mailtoUrl = `mailto:${registeredData?.registrantEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(mailtoUrl, '_blank');
@@ -139,7 +148,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
            </div>
            <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Hub Registration Success</h2>
-           <p className="text-blue-300/60 font-bold text-xs uppercase tracking-widest">Authentication keys generated and synchronized</p>
+           <p className="text-blue-300/60 font-bold text-xs uppercase tracking-widest">Authentication keys generated and cloud-synchronized</p>
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
@@ -148,20 +157,20 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                 { label: 'Institution Name', val: registeredData?.schoolName },
                 { label: 'Registered Director', val: registeredData?.registrantName }
               ].map(f => (
-                <div key={f.label} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-left hover:bg-white/10 transition-colors">
-                  <span className="text-[9px] font-black text-blue-400 uppercase block mb-1">{f.label}</span>
+                <div key={f.label} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-left hover:bg-white/10 transition-colors group">
+                  <span className="text-[9px] font-black text-blue-400 uppercase block mb-1 group-hover:text-emerald-400">{f.label}</span>
                   <p className="text-lg font-black text-white truncate">{f.val}</p>
                 </div>
               ))}
            </div>
            
            <div className="flex flex-wrap justify-center gap-4 no-print">
-              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
+              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                  Download Pack
               </button>
-              <button onClick={handleCopyCredentials} className="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase border border-white/20 transition-all">Copy Details</button>
-              <button onClick={handleEmailCredentials} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
+              <button onClick={handleCopyCredentials} className="bg-white/10 hover:bg-white text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase border border-white/20 transition-all">Copy Details</button>
+              <button onClick={handleEmailCredentials} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                  Email to Self
               </button>
@@ -169,11 +178,11 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
            
            <div className="space-y-4">
               <p className="text-[10px] text-gray-500 uppercase font-black leading-relaxed italic px-8">
-                Important: Your system access key is only visible once in plain text. Please save it using the options above.
+                CRITICAL NOTICE: Your system access key is only visible once in plain text. Please use the options above to secure your credentials before leaving this page.
               </p>
               <button 
                 onClick={() => onComplete?.(registeredData)} 
-                className="w-full bg-white text-slate-900 py-6 rounded-[2rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95"
+                className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95"
               >
                 Launch Institutional Hub
               </button>
@@ -191,7 +200,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                <img src={ACADEMY_ICON} alt="Shield" className="w-12 h-12" />
             </div>
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Onboard Institution</h2>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]">Establish your academy hub on the network</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]">Establish your academy hub on the cloud network</p>
         </div>
 
         <form onSubmit={handleEnrollment} className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
@@ -221,7 +230,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             </div>
             <div className="md:col-span-2 pt-10 space-y-6">
               <button type="submit" disabled={isSyncing} className="w-full bg-blue-900 text-white py-7 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">
-                {isSyncing ? "Establishing Secure Node..." : "Execute Enrollment Protocol"}
+                {isSyncing ? "Establishing Secure Hub Node..." : "Execute Enrollment Protocol"}
               </button>
               
               <div className="text-center">

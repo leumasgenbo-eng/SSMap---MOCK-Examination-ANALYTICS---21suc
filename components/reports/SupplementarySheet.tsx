@@ -72,7 +72,7 @@ const SupplementarySheet: React.FC<SupplementarySheetProps> = ({ students, stats
           <tbody>
             {students.map((student) => (
               <tr key={student.id} className="hover:bg-blue-50/20 transition-colors border-b border-gray-100">
-                <td className="p-2 text-center font-black border-r border-gray-200">{student.rank}</td>
+                <td className="p-2 text-center font-black border-r border-gray-100">{student.rank}</td>
                 <td className="p-2 uppercase font-black text-gray-700 border-r border-gray-200 truncate">{student.name}</td>
                 {SUBJECT_LIST.map(subName => {
                   const mockSet = student.mockData?.[settings.activeMock];
