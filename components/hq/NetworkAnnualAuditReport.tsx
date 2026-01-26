@@ -77,7 +77,7 @@ const NetworkAnnualAuditReport: React.FC<NetworkAnnualAuditReportProps> = ({ reg
                     The academic cycle for <span className="text-white font-black">{selectedYear}</span> demonstrates a robust stabilization of the <span className="text-emerald-400 font-black">Teaching Efficiency Index (TEI)</span> across the network. Unified findings indicate a network mean composite of <span className="text-blue-400 font-black">{aggregateMetrics.networkMean.toFixed(1)}%</span>.
                   </p>
                   <p>
-                    Longitudinal growth analysis confirms that <span className="text-white font-black">{aggregateMetrics.activeSchools}</span> schools outperformed the historical 5.5 mock baseline, resulting in a network-wide Significant Difference (Σ Δ) of <span className="text-emerald-400 font-black">+1.12</span>.
+                    Longitudinal growth analysis confirms that <span className="text-white font-black">{aggregateMetrics.activeSchools}</span> schools outperformed the historical 5.5 mock baseline, resulting in a network-wide Significant Difference (&Sigma; &Delta;) of <span className="text-emerald-400 font-black">+1.12</span>.
                   </p>
                </div>
                <div className="space-y-4">
@@ -123,7 +123,7 @@ const NetworkAnnualAuditReport: React.FC<NetworkAnnualAuditReportProps> = ({ reg
                     <div key={i} className="flex justify-between items-center p-5 bg-emerald-50/30 rounded-2xl border border-emerald-100/50">
                        <div>
                           <p className="text-xs font-black uppercase text-slate-900">{s.name}</p>
-                          <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Σ Δ Leader</span>
+                          <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">&Sigma; &Delta; Leader</span>
                        </div>
                        <div className="text-right">
                           <span className="text-xl font-black text-emerald-600 font-mono">+1.45</span>

@@ -35,38 +35,38 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     setIsSyncing(true);
 
     try {
-      // 1. Fetch Latest Cloud Registry to prevent duplicates
-      const { data: regData } = await supabase.from('uba_persistence').select('payload').eq('id', 'registry').single();
-      const currentRegistry: SchoolRegistryEntry[] = regData?.payload || [];
+      // 1. Check if the email is already in use via custom registry check (optional but safer)
+      const hubId = `UBA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const accessKey = `SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
-      if (currentRegistry.some(r => r.name.toUpperCase() === formData.schoolName.trim().toUpperCase())) {
-        alert("CRITICAL ERROR: This institution is already registered in the cloud registry. Duplicate enrollment is restricted.");
+      // 2. SUPABASE AUTH REGISTRATION: Create a real Auth user
+      // We use the director's email as the username
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: formData.registrantEmail.toLowerCase().trim(),
+        password: accessKey, // We use the generated access key as the password
+        options: {
+          data: {
+            schoolName: formData.schoolName.toUpperCase(),
+            hubId: hubId
+          }
+        }
+      });
+
+      if (signUpError) {
+        alert("Registration failed: " + signUpError.message);
         setIsSyncing(false);
         return;
       }
 
-      // 2. Generate Unique Credentials
-      const hubId = `UBA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const accessKey = `SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+      if (!authData.user) {
+        alert("Auth failed to establish session. Please verify email or try a different one.");
+        setIsSyncing(false);
+        return;
+      }
 
-      const newEntry: SchoolRegistryEntry = {
-        id: hubId,
-        name: formData.schoolName.toUpperCase(),
-        registrant: formData.registrant.toUpperCase(),
-        accessCode: accessKey,
-        enrollmentDate: new Date().toLocaleDateString(),
-        studentCount: 0,
-        avgAggregate: 0,
-        performanceHistory: [],
-        status: 'active',
-        lastActivity: new Date().toISOString()
-      };
+      const userId = authData.user.id;
 
-      // 3. Persist to Cloud Registry
-      const nextRegistry = [...currentRegistry, newEntry];
-      await supabase.from('uba_persistence').upsert({ id: 'registry', payload: nextRegistry, last_updated: new Date().toISOString() });
-
-      // 4. Set Local Settings and Save
+      // 3. Persist Institutional Settings to Cloud using the new user_id
       const newSettings = {
         schoolName: formData.schoolName.toUpperCase(),
         schoolAddress: formData.location.toUpperCase(),
@@ -79,18 +79,45 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         enrollmentDate: new Date().toLocaleDateString()
       };
 
+      // Upsert the specific institutional settings node
+      await supabase.from('uba_persistence').upsert({ 
+        id: `${hubId}_settings`, 
+        payload: newSettings, 
+        last_updated: new Date().toISOString(),
+        user_id: userId 
+      });
+
+      // Update the global registry (only if policy allows or if registry is moved to a public table)
+      // Since RLS is owner based, this specific user will now "own" the registry entry they create.
+      const newRegistryEntry: SchoolRegistryEntry = {
+        id: hubId,
+        name: formData.schoolName.toUpperCase(),
+        registrant: formData.registrant.toUpperCase(),
+        accessCode: accessKey,
+        enrollmentDate: new Date().toLocaleDateString(),
+        studentCount: 0,
+        avgAggregate: 0,
+        performanceHistory: [],
+        status: 'active',
+        lastActivity: new Date().toISOString()
+      };
+
+      await supabase.from('uba_persistence').upsert({ 
+        id: `registry_${hubId}`, // Using a unique ID per registry entry to avoid owner conflicts on a single 'registry' row
+        payload: [newRegistryEntry], 
+        last_updated: new Date().toISOString(),
+        user_id: userId
+      });
+
       onBulkUpdate(newSettings);
       if (onResetStudents) onResetStudents();
       
       setRegisteredData(newSettings);
       setIsRegistered(true);
       
-      // Ensure local state is synced to its specific cloud shard immediately
-      setTimeout(() => onSave(), 500);
-
-    } catch (err) {
+    } catch (err: any) {
       console.error("Enrollment failed:", err);
-      alert("Registration failed. Please check your internet connection and try again.");
+      alert("Registration failed: " + (err.message || "Network Error"));
     } finally {
       setIsSyncing(false);
     }
@@ -127,19 +154,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     alert("Credentials copied to clipboard.");
   };
 
-  const handleEmailCredentials = () => {
-    const subject = `Institutional Access Pack - ${registeredData?.schoolName}`;
-    const body = `SS-MAP - INSTITUTIONAL ACCESS PACK\n\n` +
-                 `Institution: ${registeredData?.schoolName}\n` +
-                 `Hub ID: ${registeredData?.schoolNumber}\n` +
-                 `Director: ${registeredData?.registrantName}\n` +
-                 `Access Key: ${registeredData?.accessCode}\n\n` +
-                 `Keep this email safe for all future logins. You can access the portal at your deployment URL.`;
-    
-    const mailtoUrl = `mailto:${registeredData?.registrantEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoUrl, '_blank');
-  };
-
   if (isRegistered) {
     return (
       <div className="max-w-4xl mx-auto animate-in zoom-in-95 duration-700">
@@ -170,10 +184,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                  Download Pack
               </button>
               <button onClick={handleCopyCredentials} className="bg-white/10 hover:bg-white text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase border border-white/20 transition-all">Copy Details</button>
-              <button onClick={handleEmailCredentials} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
-                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                 Email to Self
-              </button>
            </div>
            
            <div className="space-y-4">

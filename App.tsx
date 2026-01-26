@@ -73,12 +73,14 @@ const App: React.FC = () => {
   const [students, setStudents] = useState<StudentData[]>(RAW_STUDENTS);
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
-  // 1. BOOTSTRAP: Fetch only the Registry for Login Verification
+  // 1. BOOTSTRAP: Fetch Registry Nodes
   const fetchRegistry = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('uba_persistence').select('payload').eq('id', 'registry');
-      if (data && data[0]) {
-         setGlobalRegistry(data[0].payload as SchoolRegistryEntry[]);
+      // Registry nodes are unique per institution in this implementation to respect RLS
+      const { data, error } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
+      if (data) {
+         const combinedRegistry: SchoolRegistryEntry[] = data.flatMap(row => row.payload as SchoolRegistryEntry[]);
+         setGlobalRegistry(combinedRegistry);
       }
     } catch (err) {
       console.warn("Registry sync unavailable. Local session active.");
@@ -127,7 +129,7 @@ const App: React.FC = () => {
       return;
     }
 
-    // AUTH GUARD: Check session before attempt
+    // AUTH GUARD: Check session before attempt to satisfy RLS
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       alert("Session Expired: Re-authentication required to write to cloud.");
@@ -145,16 +147,29 @@ const App: React.FC = () => {
       const { error } = await supabase.from('uba_persistence').upsert(shards, { onConflict: 'id' });
       if (error) throw error;
       
-      const nextRegistry = globalRegistry.map(r => r.id === hubId ? { ...r, studentCount: students.length, lastActivity: timestamp } : r);
-      await supabase.from('uba_persistence').upsert({ id: 'registry', payload: nextRegistry, last_updated: timestamp, user_id: user.id });
-      setGlobalRegistry(nextRegistry);
+      // Update the specific registry shard for this hub
+      const myEntry = globalRegistry.find(r => r.id === hubId) || {
+        id: hubId, name: settings.schoolName, registrant: settings.registrantName || 'Unknown',
+        accessCode: settings.accessCode || '', enrollmentDate: new Date().toLocaleDateString(),
+        studentCount: students.length, avgAggregate: classAvgAggregate, performanceHistory: [],
+        status: 'active' as const, lastActivity: timestamp
+      };
+
+      const updatedEntry = { ...myEntry, studentCount: students.length, lastActivity: timestamp, avgAggregate: classAvgAggregate };
+      
+      await supabase.from('uba_persistence').upsert({ 
+        id: `registry_${hubId}`, 
+        payload: [updatedEntry], 
+        last_updated: timestamp, 
+        user_id: user.id 
+      });
 
       alert("Academy records successfully mirrored to cloud node.");
     } catch (err: any) {
       console.error(err);
       alert("Critical Sync Error: " + (err.message || "Network Restriction Active"));
     }
-  }, [settings, students, facilitators, globalRegistry]);
+  }, [settings, students, facilitators, globalRegistry, classAvgAggregate]);
 
   const handleRegistrationComplete = (data: any) => {
     setPostRegistrationData(data);
