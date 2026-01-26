@@ -9,31 +9,25 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * ARCHITECTURAL REQUIREMENTS:
- * The 'uba_persistence' table must exist in the Supabase project.
+ * FINALIZED SCHEMA (Execute in Supabase SQL Editor):
  * 
- * SQL CONFIGURATION (Run in Supabase SQL Editor):
- * 
- * -- 1) Create table if missing
- * CREATE TABLE IF NOT EXISTS public.uba_persistence (
+ * -- Table Setup
+ * CREATE TABLE public.uba_persistence (
  *   id TEXT PRIMARY KEY,
  *   payload JSONB NOT NULL,
- *   last_updated TIMESTAMPTZ DEFAULT NOW()
+ *   last_updated TIMESTAMPTZ DEFAULT NOW(),
+ *   user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE
  * );
  * 
- * -- 2) Add user_id column if missing
- * ALTER TABLE public.uba_persistence
- *   ADD COLUMN IF NOT EXISTS user_id uuid;
- * 
- * -- 3) Index for policy performance
- * CREATE INDEX IF NOT EXISTS idx_uba_persistence_user_id ON public.uba_persistence(user_id);
- * 
- * -- 4) Ensure RLS is enabled
+ * -- Security
  * ALTER TABLE public.uba_persistence ENABLE ROW LEVEL SECURITY;
  * 
- * -- 5) Remove any permissive public policy named "Allow public access" (if it exists)
- * -- EXECUTE format('DROP POLICY "%s" ON public.uba_persistence', 'Allow public access');
+ * -- Owners manage their own rows
+ * CREATE POLICY "Manage Own Data" ON public.uba_persistence
+ * FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
  * 
- * -- 6) Create owner-based policies for authenticated users
- * -- Note: Ensure the "Allow public access" policy is replaced with specific authenticated ones.
+ * -- Allow registry discovery (PUBLIC / ANON)
+ * -- This is CRITICAL: unauthenticated users must see the registry to log in.
+ * CREATE POLICY "Public Read Registry" ON public.uba_persistence
+ * FOR SELECT TO anon, authenticated USING (id LIKE 'registry_%');
  */

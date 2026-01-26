@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
-import EditableField from '../shared/EditableField';
+import ReportBrandingHeader from '../shared/ReportBrandingHeader';
 
 interface InstitutionalAnalyticsProps {
   students: ProcessedStudent[];
   stats: ClassStatistics;
   settings: GlobalSettings;
   facilitators: Record<string, StaffAssignment>;
-  onSettingChange?: (key: keyof GlobalSettings, value: any) => void;
+  onSettingChange: (key: keyof GlobalSettings, value: any) => void;
 }
 
 const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ students, stats, settings, facilitators, onSettingChange }) => {
@@ -62,23 +62,13 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       
-      {/* Academy Particulars Header (Editable) */}
-      <div className="text-center mb-6 space-y-2">
-         <h1 className="text-4xl font-black uppercase text-blue-950 tracking-tighter">
-            <EditableField value={settings.schoolName} onChange={(v) => onSettingChange?.('schoolName', v)} className="text-center w-full" />
-         </h1>
-         <p className="text-xs font-black text-gray-400 uppercase tracking-[0.4em]">
-            <EditableField value={settings.schoolAddress || "UNITED BAYLOR ACADEMY ADDRESS"} onChange={(v) => onSettingChange?.('schoolAddress', v)} className="text-center w-full" />
-         </p>
-         <div className="pt-2">
-             <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-widest">
-               INSTITUTIONAL HUB ID: <EditableField value={settings.schoolNumber || "UBA-2025-XXX"} onChange={(v) => onSettingChange?.('schoolNumber', v)} />
-             </span>
-         </div>
-         <h2 className="text-lg font-black uppercase text-red-700 tracking-tight bg-red-50 py-1 border-y border-red-100 mt-4">
-             <EditableField value={settings.examTitle} onChange={(v) => onSettingChange?.('examTitle', v)} className="text-center w-full" />
-         </h2>
-      </div>
+      {/* Unified Academy Branding Header */}
+      <ReportBrandingHeader 
+        settings={settings} 
+        onSettingChange={onSettingChange} 
+        reportTitle="INSTITUTIONAL CORE ANALYTICS"
+        subtitle="NRT PERFORMANCE DATA OUTPUT"
+      />
 
       {/* KPI Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

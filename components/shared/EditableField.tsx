@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 
 interface EditableFieldProps {
@@ -26,10 +25,12 @@ const EditableField: React.FC<EditableFieldProps> = ({ value, onChange, classNam
   }, [internalValue, multiline]);
 
   const handleBlur = () => {
-    onChange(internalValue);
+    if (internalValue !== value) {
+      onChange(internalValue);
+    }
   };
 
-  const commonClasses = `bg-transparent hover:bg-yellow-50 focus:bg-yellow-100 transition-colors border-b border-dashed border-gray-300 focus:border-blue-500 focus:outline-none print:border-none print:bg-transparent ${className}`;
+  const commonClasses = `bg-transparent hover:bg-blue-50/30 focus:bg-blue-50/50 transition-colors border-b border-dashed border-blue-200/50 focus:border-blue-500 focus:outline-none print:border-none print:bg-transparent ${className}`;
 
   if (multiline) {
     return (

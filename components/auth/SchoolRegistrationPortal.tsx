@@ -35,19 +35,18 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     setIsSyncing(true);
 
     try {
-      // 1. Check if the email is already in use via custom registry check (optional but safer)
       const hubId = `UBA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const accessKey = `SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
-      // 2. SUPABASE AUTH REGISTRATION: Create a real Auth user
-      // We use the director's email as the username
+      // User-requested logic: Attach Hub ID to auth metadata
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: formData.registrantEmail.toLowerCase().trim(),
-        password: accessKey, // We use the generated access key as the password
+        password: accessKey, 
         options: {
           data: {
+            hubId: hubId, 
             schoolName: formData.schoolName.toUpperCase(),
-            hubId: hubId
+            role: 'school_admin'
           }
         }
       });
@@ -66,7 +65,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       const userId = authData.user.id;
 
-      // 3. Persist Institutional Settings to Cloud using the new user_id
       const newSettings = {
         schoolName: formData.schoolName.toUpperCase(),
         schoolAddress: formData.location.toUpperCase(),
@@ -79,7 +77,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         enrollmentDate: new Date().toLocaleDateString()
       };
 
-      // Upsert the specific institutional settings node
       await supabase.from('uba_persistence').upsert({ 
         id: `${hubId}_settings`, 
         payload: newSettings, 
@@ -87,8 +84,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         user_id: userId 
       });
 
-      // Update the global registry (only if policy allows or if registry is moved to a public table)
-      // Since RLS is owner based, this specific user will now "own" the registry entry they create.
       const newRegistryEntry: SchoolRegistryEntry = {
         id: hubId,
         name: formData.schoolName.toUpperCase(),
@@ -103,7 +98,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       };
 
       await supabase.from('uba_persistence').upsert({ 
-        id: `registry_${hubId}`, // Using a unique ID per registry entry to avoid owner conflicts on a single 'registry' row
+        id: `registry_${hubId}`, 
         payload: [newRegistryEntry], 
         last_updated: new Date().toISOString(),
         user_id: userId
@@ -111,7 +106,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       onBulkUpdate(newSettings);
       if (onResetStudents) onResetStudents();
-      
       setRegisteredData(newSettings);
       setIsRegistered(true);
       
@@ -131,12 +125,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                  `2. Institution ID:     ${registeredData?.schoolNumber}\n` +
                  `3. Registered Director: ${registeredData?.registrantName}\n` +
                  `4. System Access Key:   ${registeredData?.accessCode}\n\n` +
-                 `--------------------------------------------------\n` +
-                 `REGISTRATION DETAILS:\n` +
-                 `Location:         ${registeredData?.schoolAddress}\n` +
-                 `School Email:     ${registeredData?.schoolEmail}\n` +
-                 `Contact Node:     ${registeredData?.schoolContact}\n` +
-                 `Date Registered:  ${registeredData?.enrollmentDate}\n\n` +
                  `* IMPORTANT: Save this file securely. Your Access Key is unique to your school.`;
     
     const blob = new Blob([text], { type: 'text/plain' });
@@ -148,12 +136,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleCopyCredentials = () => {
-    const text = `Institution: ${registeredData?.schoolName}\nHub ID: ${registeredData?.schoolNumber}\nDirector: ${registeredData?.registrantName}\nKey: ${registeredData?.accessCode}`;
-    navigator.clipboard.writeText(text);
-    alert("Credentials copied to clipboard.");
-  };
-
   if (isRegistered) {
     return (
       <div className="max-w-4xl mx-auto animate-in zoom-in-95 duration-700">
@@ -162,8 +144,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
            </div>
            <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Hub Registration Success</h2>
-           <p className="text-blue-300/60 font-bold text-xs uppercase tracking-widest">Authentication keys generated and cloud-synchronized</p>
-           
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { label: 'Institution Hub ID', val: registeredData?.schoolNumber },
@@ -171,31 +151,15 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                 { label: 'Institution Name', val: registeredData?.schoolName },
                 { label: 'Registered Director', val: registeredData?.registrantName }
               ].map(f => (
-                <div key={f.label} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-left hover:bg-white/10 transition-colors group">
-                  <span className="text-[9px] font-black text-blue-400 uppercase block mb-1 group-hover:text-emerald-400">{f.label}</span>
+                <div key={f.label} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-left hover:bg-white/10 transition-colors">
+                  <span className="text-[9px] font-black text-blue-400 uppercase block mb-1">{f.label}</span>
                   <p className="text-lg font-black text-white truncate">{f.val}</p>
                 </div>
               ))}
            </div>
-           
-           <div className="flex flex-wrap justify-center gap-4 no-print">
-              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
-                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                 Download Pack
-              </button>
-              <button onClick={handleCopyCredentials} className="bg-white/10 hover:bg-white text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase border border-white/20 transition-all">Copy Details</button>
-           </div>
-           
-           <div className="space-y-4">
-              <p className="text-[10px] text-gray-500 uppercase font-black leading-relaxed italic px-8">
-                CRITICAL NOTICE: Your system access key is only visible once in plain text. Please use the options above to secure your credentials before leaving this page.
-              </p>
-              <button 
-                onClick={() => onComplete?.(registeredData)} 
-                className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95"
-              >
-                Launch Institutional Hub
-              </button>
+           <div className="flex flex-wrap justify-center gap-4">
+              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all">Download Pack</button>
+              <button onClick={() => onComplete?.(registeredData)} className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95">Launch Institutional Hub</button>
            </div>
         </div>
       </div>
@@ -212,46 +176,16 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Onboard Institution</h2>
             <p className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]">Establish your academy hub on the cloud network</p>
         </div>
-
         <form onSubmit={handleEnrollment} className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
-            <div className="md:col-span-2 space-y-1.5">
-               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Official Academy Name</label>
-               <input type="text" value={formData.schoolName} onChange={(e) => setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required placeholder="E.G. UNITED BAYLOR ACADEMY" />
-            </div>
-            <div className="md:col-span-2 space-y-1.5">
-               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Locality / Address</label>
-               <input type="text" placeholder="TOWN, REGION..." value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required />
-            </div>
-            <div className="space-y-1.5">
-               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Registrant Director</label>
-               <input type="text" placeholder="FULL NAME..." value={formData.registrant} onChange={(e) => setFormData({...formData, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required />
-            </div>
-            <div className="space-y-1.5">
-               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Director Email</label>
-               <input type="email" placeholder="PERSONAL@MAIL.COM" value={formData.registrantEmail} onChange={(e) => setFormData({...formData, registrantEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required />
-            </div>
-            <div className="space-y-1.5">
-               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">School Official Email</label>
-               <input type="email" placeholder="OFFICE@ACADEMY.COM" value={formData.schoolEmail} onChange={(e) => setFormData({...formData, schoolEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required />
-            </div>
-            <div className="space-y-1.5">
-               <label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Contact Node</label>
-               <input type="text" placeholder="PHONE..." value={formData.contact} onChange={(e) => setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required />
-            </div>
+            <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Official Academy Name</label><input type="text" value={formData.schoolName} onChange={(e) => setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required placeholder="E.G. UNITED BAYLOR ACADEMY" /></div>
+            <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Locality / Address</label><input type="text" placeholder="TOWN, REGION..." value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Registrant Director</label><input type="text" placeholder="FULL NAME..." value={formData.registrant} onChange={(e) => setFormData({...formData, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Director Email</label><input type="email" placeholder="PERSONAL@MAIL.COM" value={formData.registrantEmail} onChange={(e) => setFormData({...formData, registrantEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">School Official Email</label><input type="email" placeholder="OFFICE@ACADEMY.COM" value={formData.schoolEmail} onChange={(e) => setFormData({...formData, schoolEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Contact Node</label><input type="text" placeholder="PHONE..." value={formData.contact} onChange={(e) => setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
             <div className="md:col-span-2 pt-10 space-y-6">
-              <button type="submit" disabled={isSyncing} className="w-full bg-blue-900 text-white py-7 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">
-                {isSyncing ? "Establishing Secure Hub Node..." : "Execute Enrollment Protocol"}
-              </button>
-              
-              <div className="text-center">
-                <button 
-                  type="button"
-                  onClick={onSwitchToLogin}
-                  className="text-[10px] font-black text-blue-900 uppercase tracking-[0.3em] hover:text-indigo-600 transition-colors border-b-2 border-transparent hover:border-indigo-600 pb-1"
-                >
-                  Already Registered? Sign In
-                </button>
-              </div>
+              <button type="submit" disabled={isSyncing} className="w-full bg-blue-900 text-white py-7 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">{isSyncing ? "Establishing Secure Hub Node..." : "Execute Enrollment Protocol"}</button>
+              <div className="text-center"><button type="button" onClick={onSwitchToLogin} className="text-[10px] font-black text-blue-900 uppercase tracking-[0.3em] hover:text-indigo-600 transition-colors border-b-2 border-transparent hover:border-indigo-600 pb-1">Already Registered? Sign In</button></div>
             </div>
         </form>
       </div>

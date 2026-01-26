@@ -1,6 +1,7 @@
 import React from 'react';
 import { StudentData, GlobalSettings, MockSeriesRecord } from '../../types';
 import EditableField from '../shared/EditableField';
+import ReportBrandingHeader from '../shared/ReportBrandingHeader';
 
 interface SeriesBroadSheetProps {
   students: StudentData[];
@@ -35,31 +36,14 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
 
   return (
     <div className="bg-white p-6 print:p-0 min-h-screen max-w-full">
-      {/* Universal Academy Particulars Header */}
-      <div className="text-center mb-10 space-y-2 border-b-4 border-blue-900 pb-6">
-        <h1 className="text-4xl font-black uppercase text-blue-950 tracking-tighter">
-          <EditableField value={settings.schoolName} onChange={(v) => onSettingChange('schoolName', v)} className="text-center w-full font-black" />
-        </h1>
-        <p className="text-xs font-black text-gray-400 uppercase tracking-[0.4em]">
-          <EditableField value={settings.schoolAddress || "ACADEMY ADDRESS, REGION"} onChange={(v) => onSettingChange('schoolAddress', v)} className="text-center w-full" />
-        </p>
-        <div className="flex justify-center items-center gap-4 mt-4">
-           <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-5 py-1 rounded-full border border-blue-100 uppercase tracking-widest shadow-sm">
-             Hub ID: <EditableField value={settings.schoolNumber || "UBA-2025-XXX"} onChange={(v) => onSettingChange('schoolNumber', v)} className="inline-block" />
-           </span>
-           <div className="flex gap-2 items-center text-[10px] font-black text-gray-500 uppercase tracking-widest">
-              <span>Contact:</span>
-              <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} />
-           </div>
-        </div>
-        <div className="pt-4 flex flex-col items-center">
-           <div className="bg-blue-900 text-white px-10 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.5em] shadow-2xl flex items-center gap-4">
-             <span>Series Tracker 1-10</span>
-             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
-             <span>AY: {settings.academicYear}</span>
-           </div>
-        </div>
-      </div>
+      {/* Unified Academy Particulars Header */}
+      <ReportBrandingHeader 
+        settings={settings} 
+        onSettingChange={onSettingChange} 
+        reportTitle="INSTITUTIONAL PERFORMANCE SERIES TRACKER"
+        subtitle="LONGITUDINAL ACADEMIC JOURNEY (MOCKS 1-10)"
+        isLandscape={true}
+      />
 
       {/* Main Sliding Matrix */}
       <div className="shadow-2xl border border-gray-200 rounded-[2.5rem] bg-white overflow-hidden relative group">

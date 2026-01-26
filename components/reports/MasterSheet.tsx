@@ -4,6 +4,7 @@ import EditableField from '../shared/EditableField';
 import CompositeSheet from './CompositeSheet';
 import SupplementarySheet from './SupplementarySheet';
 import InstitutionalAnalytics from './InstitutionalAnalytics';
+import ReportBrandingHeader from '../shared/ReportBrandingHeader';
 
 interface MasterSheetProps {
   students: ProcessedStudent[];
@@ -117,26 +118,14 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
       </div>
 
       <div id="broadsheet-export-container">
-        {/* Global Academy Header - EDITABLE PARTICULARS */}
-        <div className="text-center mb-10 relative">
-          <h1 className="text-4xl font-black uppercase text-blue-950 tracking-tighter">
-            <EditableField value={settings.schoolName} onChange={(v) => onSettingChange('schoolName', v)} className="text-center w-full" />
-          </h1>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
-            <EditableField value={settings.schoolAddress || "UNITED BAYLOR ACADEMY ADDRESS"} onChange={(v) => onSettingChange('schoolAddress', v)} className="text-center w-full" />
-          </p>
-          <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 inline-block mb-3 uppercase tracking-widest">
-             INSTITUTIONAL HUB ID: <EditableField value={settings.schoolNumber || "UBA-2025-XXX"} onChange={(v) => onSettingChange('schoolNumber', v)} className="inline-block" />
-          </div>
-          <h2 className="text-lg font-black uppercase text-red-700 tracking-tight bg-red-50 py-1 border-y border-red-100 mb-4">
-             <EditableField value={settings.examTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />
-          </h2>
-          <div className="flex items-center justify-center gap-4 text-[11px] font-black text-gray-800 uppercase tracking-widest">
-             <span className="bg-blue-900 text-white px-4 py-0.5 rounded shadow-sm">{settings.activeMock}</span>
-             <span>Assessment Period: {settings.academicYear}</span>
-             <span className="italic opacity-40 lowercase print:hidden">| format: landscape optimized</span>
-          </div>
-        </div>
+        {/* Unified Academy Branding Header */}
+        <ReportBrandingHeader 
+          settings={settings} 
+          onSettingChange={onSettingChange} 
+          reportTitle={settings.examTitle}
+          subtitle={sheetView === 'composite' ? 'OFFICIAL MASTER BROAD SHEET' : sheetView === 'analytics' ? 'INSTITUTIONAL PERFORMANCE ANALYTICS' : `SUPPLEMENTARY SUB-SCORE SHEET (${sheetView.toUpperCase()})`}
+          isLandscape={true}
+        />
 
         {/* Dynamic Content Rendering */}
         <div className="min-h-[400px]">

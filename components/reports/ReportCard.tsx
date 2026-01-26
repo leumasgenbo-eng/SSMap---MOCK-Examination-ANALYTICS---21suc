@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { ProcessedStudent, GlobalSettings, ClassStatistics } from '../../types';
 import EditableField from '../shared/EditableField';
+import ReportBrandingHeader from '../shared/ReportBrandingHeader';
 
 interface ReportCardProps {
   student: ProcessedStudent;
@@ -15,7 +16,6 @@ interface ReportCardProps {
 
 const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSettingChange, onStudentUpdate, classAverageAggregate, totalEnrolled, isFacilitator }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const dynamicAnalysis = useMemo(() => {
     const strengths = student.subjects.filter(s => s.finalCompositeScore >= (stats.subjectMeans[s.subject] || 50) + 5).map(s => s.subject);
@@ -38,15 +38,6 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
     };
   }, [student, stats, settings.schoolAddress]);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => onSettingChange('schoolLogo', reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSharePDF = async () => {
     setIsGenerating(true);
     const reportId = `report-${student.id}`;
@@ -67,28 +58,8 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
     } catch (e) { console.error(e); } finally { setIsGenerating(false); }
   };
 
-  const LogoArea = ({ className = "w-20 h-20" }: { className?: string }) => (
-    <div 
-      className={`${className} relative group cursor-pointer border-2 border-dashed border-gray-200 rounded-3xl flex items-center justify-center overflow-hidden bg-gray-50 hover:bg-blue-50 transition-all no-print`}
-      onClick={() => logoInputRef.current?.click()}
-    >
-      {settings.schoolLogo ? (
-        <img src={settings.schoolLogo} alt="Logo" className="w-full h-full object-contain" />
-      ) : (
-        <div className="flex flex-col items-center gap-1">
-          <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 0 1 12.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg>
-          <span className="text-[7px] font-black text-gray-300 uppercase">Logo</span>
-        </div>
-      )}
-      <div className="hidden print:block absolute inset-0">
-        {settings.schoolLogo && <img src={settings.schoolLogo} alt="Logo" className="w-full h-full object-contain" />}
-      </div>
-    </div>
-  );
-
   return (
     <div id={`report-${student.id}`} className="bg-white p-10 max-w-[210mm] mx-auto min-h-[296mm] border border-gray-200 shadow-2xl print:shadow-none print:border-none page-break relative flex flex-col box-border font-sans">
-       <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
        
        <div data-html2canvas-ignore="true" className="absolute top-4 -right-16 flex flex-col gap-4 no-print z-50">
           <button onClick={handleSharePDF} disabled={isGenerating} className={`${isGenerating ? 'bg-gray-400' : 'bg-blue-900 hover:bg-black'} text-white w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-all transform hover:scale-110`}>
@@ -96,29 +67,13 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
           </button>
        </div>
 
-       {/* Professional Academy Header */}
-       <div className="relative border-b-[6px] border-double border-blue-900 pb-4 mb-6 text-center">
-          <div className="absolute top-0 left-0"><LogoArea className="w-20 h-20" /></div>
-          <h1 className="text-4xl font-black text-blue-950 tracking-tighter uppercase mb-1 leading-none">
-            <EditableField value={settings.schoolName} onChange={(v) => onSettingChange('schoolName', v)} className="text-center font-black w-full" />
-          </h1>
-          <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-2">
-            <EditableField value={settings.schoolAddress || "ACADEMY ADDRESS, REGION"} onChange={(v) => onSettingChange('schoolAddress', v)} className="text-center w-full" />
-          </div>
-          <div className="mb-3">
-             <span className="text-[9px] font-black text-blue-900 border border-blue-900/20 px-5 py-0.5 rounded-full uppercase tracking-[0.4em] bg-blue-50/50">
-               HUB ID: <EditableField value={settings.schoolNumber || "UBA-2025-XXX"} onChange={(v) => onSettingChange('schoolNumber', v)} className="inline-block" />
-             </span>
-          </div>
-          <h2 className="text-xl font-black text-red-700 uppercase leading-tight bg-red-50 py-2 border-y border-red-100 mb-3">
-            <EditableField value={settings.examTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />
-          </h2>
-          <div className="flex justify-center gap-8 text-[11px] font-black text-gray-800 uppercase tracking-widest">
-             <span className="bg-blue-900 text-white px-4 py-0.5 rounded shadow-sm">{settings.termInfo}</span>
-             <span className="border-x border-gray-300 px-6 italic">AY: {settings.academicYear}</span>
-             <span className="font-mono text-blue-900">DATE: {new Date().toLocaleDateString()}</span>
-          </div>
-       </div>
+       {/* Unified Academy Branding Header */}
+       <ReportBrandingHeader 
+         settings={settings} 
+         onSettingChange={onSettingChange} 
+         reportTitle={settings.examTitle}
+         subtitle="INDIVIDUAL PUPIL ATTAINMENT REPORT"
+       />
 
        {/* Pupil Particulars */}
        <div className="grid grid-cols-2 gap-6 mb-6 border-2 border-blue-950 p-4 rounded-3xl bg-blue-50/10 text-[12px] font-bold">
