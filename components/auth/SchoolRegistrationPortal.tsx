@@ -20,6 +20,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
   const [isRegistered, setIsRegistered] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [registeredData, setRegisteredData] = useState<any>(null);
+  const [authErrorCode, setAuthErrorCode] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     schoolName: '',
@@ -33,6 +34,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
   const handleEnrollment = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSyncing(true);
+    setAuthErrorCode(null);
 
     try {
       const hubId = `UBA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -52,11 +54,17 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       });
 
       if (signUpError) {
-        throw new Error("Registration Node Error: " + signUpError.message);
+        if (signUpError.message.includes('Failed to fetch')) {
+          throw new Error("NETWORK_UNREACHABLE: The security hub is offline. Check your internet connection or Supabase project status.");
+        }
+        throw new Error(signUpError.message);
       }
 
-      if (!authData.user) {
-        throw new Error("Auth state failed to initialize. User creation returned empty.");
+      // Check for User Already Exists
+      if (!authData.user || (authData.user.identities && authData.user.identities.length === 0)) {
+        setAuthErrorCode('USER_EXISTS');
+        setIsSyncing(false);
+        return;
       }
 
       const userId = authData.user.id;
@@ -76,7 +84,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         enrollmentDate: new Date().toLocaleDateString()
       };
 
-      // Perform direct insert/upsert for settings
       const { error: settingsError } = await supabase.from('uba_persistence').insert({ 
         id: `${hubId}_settings`, 
         payload: newSettings, 
@@ -86,7 +93,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       if (settingsError) throw new Error("Settings Allocation Failed: " + settingsError.message);
 
-      // 3. NETWORK REGISTRY NODE (Critical for Hub Discovery)
+      // 3. NETWORK REGISTRY NODE
       const newRegistryEntry: SchoolRegistryEntry = {
         id: hubId,
         name: formData.schoolName.toUpperCase(),
@@ -100,7 +107,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         lastActivity: ts
       };
 
-      // Insert registry node
       const { error: regError } = await supabase.from('uba_persistence').insert({ 
         id: `registry_${hubId}`, 
         payload: [newRegistryEntry], 
@@ -110,7 +116,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       if (regError) throw new Error("Network Registry Sync Failed: " + regError.message);
 
-      // 4. LOCAL STATE SYNCHRONIZATION
       onBulkUpdate(newSettings);
       if (onResetStudents) onResetStudents();
       
@@ -119,7 +124,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       
     } catch (err: any) {
       console.error("Enrollment sequence interrupted:", err);
-      alert(err.message || "Network Error: Hub creation timed out.");
+      alert(err.message || "Registration Node Error: Failed to fetch");
     } finally {
       setIsSyncing(false);
     }
@@ -192,6 +197,22 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Onboard New Institution</h2>
             <p className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]">Establish your academy hub on the cloud network</p>
         </div>
+
+        {authErrorCode === 'USER_EXISTS' && (
+          <div className="bg-amber-50 border-2 border-amber-200 p-8 rounded-[2rem] text-center space-y-4 animate-in fade-in zoom-in-95">
+             <div className="text-amber-600 font-black text-xs uppercase tracking-[0.2em]">Registration Conflict Detected</div>
+             <p className="text-sm font-bold text-amber-900 leading-relaxed">
+               This email is already registered in our network. Each director can only manage one primary institutional hub.
+             </p>
+             <button 
+               onClick={onSwitchToLogin}
+               className="bg-amber-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-amber-700 transition-all"
+             >
+               Proceed to Sign In Gateway
+             </button>
+          </div>
+        )}
+
         <form onSubmit={handleEnrollment} className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
             <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Official Academy Name</label><input type="text" value={formData.schoolName} onChange={(e) => setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required placeholder="E.G. UNITED BAYLOR ACADEMY" /></div>
             <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Locality / Address</label><input type="text" placeholder="TOWN, REGION..." value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required /></div>
