@@ -76,12 +76,12 @@ const App: React.FC = () => {
   // 1. BOOTSTRAP: Fetch only the Registry for Login Verification
   const fetchRegistry = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('uba_persistence').select('payload').eq('id', 'registry').single();
-      if (data && data.payload) {
-         setGlobalRegistry(data.payload as SchoolRegistryEntry[]);
+      const { data, error } = await supabase.from('uba_persistence').select('payload').eq('id', 'registry');
+      if (data && data[0]) {
+         setGlobalRegistry(data[0].payload as SchoolRegistryEntry[]);
       }
     } catch (err) {
-      console.warn("Registry sync unavailable. Using local buffer.");
+      console.warn("Registry sync unavailable. Local session active.");
     } finally {
       setIsInitializing(false);
     }
@@ -100,7 +100,7 @@ const App: React.FC = () => {
         if (remote[`${hubId}_facilitators`]) setFacilitators(remote[`${hubId}_facilitators`]);
       }
     } catch (err) {
-      console.error("School shard load failed.");
+      console.error("Institutional data node fetch failed.");
     } finally {
       setIsInitializing(false);
     }
@@ -123,27 +123,36 @@ const App: React.FC = () => {
   const handleSave = useCallback(async () => {
     const hubId = settings.schoolNumber;
     if (!hubId) {
-      alert("Registration incomplete. Cannot sync to cloud.");
+      alert("Institutional identity missing. Sync aborted.");
+      return;
+    }
+
+    // AUTH GUARD: Check session before attempt
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Session Expired: Re-authentication required to write to cloud.");
       return;
     }
     
     const timestamp = new Date().toISOString();
     const shards = [
-      { id: `${hubId}_settings`, payload: settings, last_updated: timestamp },
-      { id: `${hubId}_students`, payload: students, last_updated: timestamp },
-      { id: `${hubId}_facilitators`, payload: facilitators, last_updated: timestamp }
+      { id: `${hubId}_settings`, payload: settings, last_updated: timestamp, user_id: user.id },
+      { id: `${hubId}_students`, payload: students, last_updated: timestamp, user_id: user.id },
+      { id: `${hubId}_facilitators`, payload: facilitators, last_updated: timestamp, user_id: user.id }
     ];
 
     try {
-      await supabase.from('uba_persistence').upsert(shards, { onConflict: 'id' });
+      const { error } = await supabase.from('uba_persistence').upsert(shards, { onConflict: 'id' });
+      if (error) throw error;
       
       const nextRegistry = globalRegistry.map(r => r.id === hubId ? { ...r, studentCount: students.length, lastActivity: timestamp } : r);
-      await supabase.from('uba_persistence').upsert({ id: 'registry', payload: nextRegistry, last_updated: timestamp });
+      await supabase.from('uba_persistence').upsert({ id: 'registry', payload: nextRegistry, last_updated: timestamp, user_id: user.id });
       setGlobalRegistry(nextRegistry);
 
-      alert("Cloud Sync Successful.");
-    } catch (err) {
-      alert("Cloud Sync Restricted.");
+      alert("Academy records successfully mirrored to cloud node.");
+    } catch (err: any) {
+      console.error(err);
+      alert("Critical Sync Error: " + (err.message || "Network Restriction Active"));
     }
   }, [settings, students, facilitators, globalRegistry]);
 
@@ -160,7 +169,7 @@ const App: React.FC = () => {
   };
 
   const clearData = () => {
-    if(window.confirm("Switch to Real Mode? This will clear all current demo session data.")) {
+    if(window.confirm("Switch to Real Mode? This clears the demo buffer. Ensure particulars are set.")) {
         setStudents(RAW_STUDENTS);
         setFacilitators({});
         handleSave();

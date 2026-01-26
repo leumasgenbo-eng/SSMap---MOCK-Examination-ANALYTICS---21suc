@@ -68,11 +68,11 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
             <EditableField value={settings.schoolName} onChange={(v) => onSettingChange?.('schoolName', v)} className="text-center w-full" />
          </h1>
          <p className="text-xs font-black text-gray-400 uppercase tracking-[0.4em]">
-            <EditableField value={settings.schoolAddress || "CULBURY ACADEMY ADDRESS"} onChange={(v) => onSettingChange?.('schoolAddress', v)} className="text-center w-full" />
+            <EditableField value={settings.schoolAddress || "UNITED BAYLOR ACADEMY ADDRESS"} onChange={(v) => onSettingChange?.('schoolAddress', v)} className="text-center w-full" />
          </p>
          <div className="pt-2">
              <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-widest">
-               Hub ID: <EditableField value={settings.schoolNumber || "CBA-2025-XXX"} onChange={(v) => onSettingChange?.('schoolNumber', v)} />
+               INSTITUTIONAL HUB ID: <EditableField value={settings.schoolNumber || "UBA-2025-XXX"} onChange={(v) => onSettingChange?.('schoolNumber', v)} />
              </span>
          </div>
          <h2 className="text-lg font-black uppercase text-red-700 tracking-tight bg-red-50 py-1 border-y border-red-100 mt-4">

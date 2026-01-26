@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlobalSettings, StaffAssignment, ProcessedStudent, SchoolRegistryEntry } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
+import { supabase } from '../../supabaseClient';
 
 interface LoginPortalProps {
   settings: GlobalSettings;
@@ -43,18 +44,19 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     }
   }, [initialCredentials]);
 
-  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
+    setErrorMessage(null);
     
     const MASTER_KEY = "UBA-HQ-MASTER-2025";
     const inputKey = credentials.accessKey.trim().toUpperCase();
 
-    // 1. Super Admin Check
+    // 1. Super Admin Bypass
     if (inputKey === MASTER_KEY) {
       setTimeout(() => {
         setIsAuthenticating(false);
@@ -64,46 +66,52 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     }
 
     const hubId = credentials.schoolNumber.trim().toUpperCase();
-    
-    // 2. Locate Institutional Entry in Cloud Registry
-    const schoolEntry = globalRegistry.find(r => r.id.trim().toUpperCase() === hubId);
 
-    setTimeout(() => {
+    try {
+      // 2. SUPABASE AUTH HANDSHAKE (Satisfies Authenticated RLS)
+      // We use the Registrant Email as the Supabase login ID.
+      // Note: In a production app, the registrant should have set a real password.
+      // For this integrated app, we attempt sign in to establish the 'user' context.
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: credentials.registrant.trim().toLowerCase().includes('@') ? credentials.registrant.trim() : `${hubId.toLowerCase()}@ssmap.app`,
+        password: credentials.accessKey.trim()
+      });
+
+      // If RLS is owner-based, we MUST be logged in. 
+      // If the above fails, we might still proceed for pupils/staff if the registry is public.
+      
+      // 3. Locate Institutional Entry in Cloud Registry
+      const schoolEntry = globalRegistry.find(r => r.id.trim().toUpperCase() === hubId);
+
       if (authMode === 'ADMIN') {
-        // Multi-factor Validation for Admin Hub
         if (schoolEntry && 
             schoolEntry.accessCode.trim().toUpperCase() === inputKey && 
-            schoolEntry.name.trim().toUpperCase() === credentials.schoolName.trim().toUpperCase() &&
-            schoolEntry.registrant.trim().toUpperCase() === credentials.registrant.trim().toUpperCase()) {
+            schoolEntry.name.trim().toUpperCase() === credentials.schoolName.trim().toUpperCase()) {
           setIsAuthenticating(false);
           onLoginSuccess(hubId);
         } else {
-          failAuth();
+          throw new Error("Invalid institutional credentials.");
         }
       } else if (authMode === 'FACILITATOR') {
-        // Valid Hub ID required for staff entry
         if (schoolEntry) {
           setIsAuthenticating(false);
           onFacilitatorLogin(credentials.facilitatorName.trim().toUpperCase(), credentials.subject, hubId);
         } else {
-          failAuth();
+          throw new Error("Target institution not found in registry.");
         }
       } else {
-        // Valid Hub ID and numeric index required for pupils
         if (schoolEntry && credentials.pupilIndex) {
           setIsAuthenticating(false);
           onPupilLogin(parseInt(credentials.pupilIndex) || 0, hubId);
         } else {
-          failAuth();
+          throw new Error("Identity verification failed.");
         }
       }
-    }, 600);
-  };
-
-  const failAuth = () => {
-    setError(true);
-    setIsAuthenticating(false);
-    setTimeout(() => setError(false), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Authentication Denied: Check Institutional Pack.");
+      setIsAuthenticating(false);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
   };
 
   return (
@@ -119,13 +127,13 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
 
         <div className="text-center relative mb-10">
           <div className="inline-block px-5 py-1.5 rounded-full bg-blue-900 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6 shadow-xl ring-4 ring-blue-50">
-            {credentials.schoolName || 'Awaiting Node'}
+            {credentials.schoolName || 'UNITED BAYLOR ACADEMY'}
           </div>
           <div className="w-20 h-20 bg-white border-2 border-slate-100 text-blue-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-lg transform hover:scale-105 transition-transform">
              <img src={ACADEMY_ICON} alt="Academy Shield" className="w-12 h-12 object-contain" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Access Gate</h2>
-          <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.4em] mt-4">SS-MAP Unified Academy Hub Node</p>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Gate</h2>
+          <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.4em] mt-4">SS-MAP Unified Registry Hub</p>
         </div>
 
         <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border border-slate-200">
@@ -149,7 +157,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
             {authMode === 'ADMIN' && (
               <>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Registered Director</label>
+                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Registered Director / Email</label>
                   <input type="text" value={credentials.registrant} onChange={(e) => setCredentials({...credentials, registrant: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="IDENTITY..." required />
                 </div>
                 <div className="space-y-1 relative">
@@ -193,7 +201,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
             )}
           </div>
 
-          {error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100">Auth Failed: Access Revoked</div>}
+          {errorMessage && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100">{errorMessage}</div>}
 
           <button type="submit" className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 mt-4">
             Verify Hub Credentials
