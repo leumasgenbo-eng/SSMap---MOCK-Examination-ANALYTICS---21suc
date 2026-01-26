@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
 import ReportBrandingHeader from '../shared/ReportBrandingHeader';
+import EditableField from '../shared/EditableField';
 
 interface InstitutionalAnalyticsProps {
   students: ProcessedStudent[];
@@ -30,8 +31,8 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
       return { qpr, svi };
     });
 
-    const avgQPR = subjectMetrics.reduce((a, b) => a + b.qpr, 0) / SUBJECT_LIST.length;
-    const avgSVI = subjectMetrics.reduce((a, b) => a + b.svi, 0) / SUBJECT_LIST.length;
+    const avgQPR = subjectMetrics.reduce((a, b) => a + b.qpr, 0) / (SUBJECT_LIST.length || 1);
+    const avgSVI = subjectMetrics.reduce((a, b) => a + b.svi, 0) / (SUBJECT_LIST.length || 1);
 
     // 2. Section Ranges
     const getAvgRange = (isSectionA: boolean) => {
@@ -40,7 +41,9 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
           const subSc = (s as any).mockData?.[settings.activeMock]?.examSubScores?.[sub] || { sectionA: 0, sectionB: 0 };
           return isSectionA ? subSc.sectionA : subSc.sectionB;
         });
-        return Math.max(...scores) - Math.min(...scores);
+        const max = scores.length > 0 ? Math.max(...scores) : 0;
+        const min = scores.length > 0 ? Math.min(...scores) : 0;
+        return max - min;
       });
       return ranges.reduce((a, b) => a + b, 0) / (ranges.length || 1);
     };
@@ -52,9 +55,9 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
     const femaleAvg = females.length > 0 ? females.reduce((sum, s) => sum + s.totalScore, 0) / females.length : 0;
 
     // 4. Strength Index
-    const globalMean = students.reduce((sum, s) => sum + s.totalScore, 0) / (students.length || 1);
-    const meanAgg = students.reduce((sum, s) => sum + s.bestSixAggregate, 0) / (students.length || 1);
-    const strengthIndex = (globalMean / (meanAgg || 1)) / 5;
+    const globalMean = students.length > 0 ? students.reduce((sum, s) => sum + s.totalScore, 0) / students.length : 0;
+    const meanAgg = students.length > 0 ? students.reduce((sum, s) => sum + s.bestSixAggregate, 0) / students.length : 1;
+    const strengthIndex = (globalMean / meanAgg) / 5;
 
     return { avgQPR, avgSVI, rangeA: getAvgRange(true), rangeB: getAvgRange(false), males: males.length, females: females.length, maleAvg, femaleAvg, strengthIndex };
   }, [students, stats, settings.activeMock]);
@@ -161,6 +164,22 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* Signature Area for Analytics Verification */}
+      <div className="flex justify-between items-end pt-12 pb-4 border-t-2 border-blue-900 mt-12 page-break-inside-avoid">
+         <div className="flex flex-col items-center">
+            <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
+               <EditableField value="Director of Studies" onChange={() => {}} className="text-center w-full" />
+            </div>
+            <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Performance Audit Signature</p>
+         </div>
+         <div className="flex flex-col items-center">
+            <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
+               <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center w-full" />
+            </div>
+            <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Academy Director's Seal</p>
+         </div>
       </div>
     </div>
   );

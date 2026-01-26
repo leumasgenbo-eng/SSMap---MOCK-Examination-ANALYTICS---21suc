@@ -206,8 +206,8 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
            <button onClick={onSwitchToRegister} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Onboard New Institution?</button>
            <div 
              className="w-1.5 h-1.5 bg-slate-200 rounded-full cursor-pointer hover:bg-blue-500 transition-colors" 
-             title="HQ Master Access"
-             onClick={() => setCredentials({...credentials, accessKey: 'UBA-HQ-MASTER-2025'})}
+             title="Secret Portal"
+             onClick={() => onSuperAdminLogin()}
            ></div>
         </div>
       </div>
