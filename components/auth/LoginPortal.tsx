@@ -14,7 +14,7 @@ interface LoginPortalProps {
   onSwitchToRegister: () => void;
 }
 
-const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC";
+const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC";
 
 const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, processedStudents, globalRegistry, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
@@ -94,11 +94,14 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         )}
 
         <div className="text-center relative mb-10">
-          <div className="w-20 h-20 bg-blue-900 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl">
+          <div className="inline-block px-5 py-1.5 rounded-full bg-blue-900 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6 shadow-xl ring-4 ring-blue-50">
+            {credentials.schoolName}
+          </div>
+          <div className="w-20 h-20 bg-white border-2 border-slate-100 text-blue-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-lg transform hover:scale-105 transition-transform">
              <img src={ACADEMY_ICON} alt="Academy Shield" className="w-12 h-12 object-contain" />
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Access Gate</h2>
-          <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] mt-3">{credentials.schoolName} Unified Academy Hub</p>
+          <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.4em] mt-4">SS-MAP Unified Academy Hub Node</p>
         </div>
 
         <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border border-slate-200">
@@ -123,7 +126,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
               <>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Registered Director</label>
-                  <input type="text" value={credentials.registrant} onChange={(e) => setCredentials({...credentials, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="IDENTITY..." required />
+                  <input type="text" value={credentials.registrant} onChange={(e) => setCredentials({...credentials, registrant: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="IDENTITY..." required />
                 </div>
                 <div className="space-y-1 relative">
                   <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">Hub Access Key</label>
