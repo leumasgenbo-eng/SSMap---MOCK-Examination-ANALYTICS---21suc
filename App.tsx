@@ -74,21 +74,25 @@ const App: React.FC = () => {
     try {
       const { data } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (data) {
-         setGlobalRegistry(data.flatMap(row => row.payload as SchoolRegistryEntry[]));
+         setGlobalRegistry(data.flatMap(row => {
+           if (!row.payload) return [];
+           return Array.isArray(row.payload) ? row.payload : [row.payload];
+         }) as SchoolRegistryEntry[]);
       }
     } catch (err) { console.warn("Registry sync unavailable."); }
     finally { setIsInitializing(false); }
   }, []);
 
   const loadSchoolSession = async (hubId: string) => {
+    if (!hubId) return;
     setIsInitializing(true);
     try {
       const { data } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
       if (data) {
         data.forEach(row => {
-          if (row.id === `${hubId}_settings`) setSettings(row.payload);
-          if (row.id === `${hubId}_students`) setStudents(row.payload);
-          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload);
+          if (row.id === `${hubId}_settings` && row.payload) setSettings(row.payload);
+          if (row.id === `${hubId}_students` && row.payload) setStudents(row.payload);
+          if (row.id === `${hubId}_facilitators` && row.payload) setFacilitators(row.payload);
         });
       }
     } catch (err) { console.error("Institutional data fetch failed."); }
@@ -105,7 +109,7 @@ const App: React.FC = () => {
       if (!user) return;
       channel = supabase.channel(`sync-${user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'uba_persistence', filter: `user_id=eq.${user.id}` }, (payload) => {
         const newRow = payload.new as any;
-        if (!newRow) return;
+        if (!newRow || !newRow.payload) return;
         const hubId = settings.schoolNumber;
         if (newRow.id === `${hubId}_settings`) setSettings(newRow.payload);
         if (newRow.id === `${hubId}_students`) setStudents(newRow.payload);
@@ -119,9 +123,11 @@ const App: React.FC = () => {
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
     const staffNames: Record<string, string> = {};
-    Object.keys(facilitators).forEach(k => { staffNames[k] = facilitators[k].name; });
+    Object.keys(facilitators).forEach(k => { 
+      if (facilitators[k]) staffNames[k] = facilitators[k].name || 'TBA'; 
+    });
     const processed = processStudentData(s, students, staffNames, settings);
-    const avgAgg = processed.reduce((sum, st) => sum + st.bestSixAggregate, 0) / (processed.length || 1);
+    const avgAgg = processed.reduce((sum, st) => sum + (st.bestSixAggregate || 0), 0) / (processed.length || 1);
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
   }, [students, facilitators, settings]);
 
@@ -137,7 +143,16 @@ const App: React.FC = () => {
       { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts }
     ];
     await supabase.from('uba_persistence').upsert(shards);
-    const regEntry = { id: hubId, name: settings.schoolName, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts };
+    const regEntry = { 
+      id: hubId, 
+      name: settings.schoolName || "UNITED BAYLOR ACADEMY", 
+      studentCount: students.length, 
+      avgAggregate: classAvgAggregate, 
+      status: 'active', 
+      lastActivity: ts,
+      accessCode: settings.accessCode,
+      registrant: settings.registrantName
+    };
     await supabase.from('uba_persistence').upsert({ id: `registry_${hubId}`, payload: [regEntry], user_id: user.id, last_updated: ts });
   }, [settings, students, facilitators, classAvgAggregate]);
 
@@ -156,7 +171,7 @@ const App: React.FC = () => {
         {isRegistering ? (
           <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSave} onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); fetchRegistry(); }} onSwitchToLogin={() => setIsRegistering(false)} />
         ) : (
-          <LoginPortal settings={settings} processedStudents={processedStudents} globalRegistry={globalRegistry} initialCredentials={postRegistrationData} onLoginSuccess={(id) => { loadSchoolSession(id); setIsAuthenticated(true); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} onSwitchToRegister={() => setIsRegistering(true)} />
+          <LoginPortal settings={settings} processedStudents={processedStudents} globalRegistry={globalRegistry} initialCredentials={postRegistrationData} onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} onSwitchToRegister={() => setIsRegistering(true)} />
         )}
       </div>
     );

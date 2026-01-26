@@ -68,7 +68,34 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     const hubId = (credentials.schoolNumber || "").trim().toUpperCase();
 
     try {
-      // 2. SUPABASE AUTH HANDSHAKE (Satisfies Authenticated RLS)
+      // 2. REGISTRY VERIFICATION (Direct Request Logic)
+      const { data: registryData, error: regError } = await supabase
+        .from('uba_persistence')
+        .select('payload')
+        .eq('id', `registry_${hubId}`)
+        .maybeSingle();
+
+      if (regError || !registryData || !registryData.payload) {
+         throw new Error("Hub ID not found in network registry.");
+      }
+
+      // Handle both array and object formats in payload
+      const rawEntry = Array.isArray(registryData.payload) ? registryData.payload[0] : registryData.payload;
+      if (!rawEntry) throw new Error("Institutional registry record is corrupt.");
+
+      const storedKey = (rawEntry.accessCode || rawEntry.access_key || "").trim().toUpperCase();
+      const storedName = (rawEntry.name || "").trim().toUpperCase();
+      const inputName = (credentials.schoolName || "").trim().toUpperCase();
+
+      if (storedKey !== inputKey) {
+        throw new Error("Invalid institutional access key.");
+      }
+
+      if (authMode === 'ADMIN' && storedName !== inputName) {
+        throw new Error("Institution name mismatch. Verify registration pack.");
+      }
+
+      // 3. SUPABASE AUTH HANDSHAKE (Required for RLS policies)
       const email = (credentials.registrant || "").trim().toLowerCase().includes('@') 
         ? (credentials.registrant || "").trim() 
         : `${hubId.toLowerCase()}@ssmap.app`;
@@ -78,44 +105,21 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         password: (credentials.accessKey || "").trim()
       });
 
-      if (authError) throw new Error("Authentication failed: " + authError.message);
+      if (authError) throw new Error("Auth Node Refused: " + authError.message);
 
-      // 3. Direct Institutional Entry Verification as requested
-      const { data, error: registryError } = await supabase
-        .from('uba_persistence')
-        .select('payload')
-        .eq('id', `registry_${hubId}`)
-        .single();
-
-      if (registryError || !data || !data.payload) {
-         throw new Error("Hub ID not found in network registry.");
-      }
-
-      const rawEntry = Array.isArray(data.payload) ? data.payload[0] : data.payload;
-      const schoolEntry = rawEntry as SchoolRegistryEntry;
-
-      if (!schoolEntry) throw new Error("Malformed registry entry.");
-
+      // 4. ROUTING
       if (authMode === 'ADMIN') {
-        const storedKey = (schoolEntry.accessCode || "").trim().toUpperCase();
-        const storedName = (schoolEntry.name || "").trim().toUpperCase();
-        const inputName = (credentials.schoolName || "").trim().toUpperCase();
-
-        if (storedKey === inputKey && storedName === inputName) {
-          setIsAuthenticating(false);
-          onLoginSuccess(hubId);
-        } else {
-          throw new Error("Invalid institutional credentials.");
-        }
+        setIsAuthenticating(false);
+        onLoginSuccess(hubId);
       } else if (authMode === 'FACILITATOR') {
-          setIsAuthenticating(false);
-          onFacilitatorLogin((credentials.facilitatorName || "").trim().toUpperCase(), credentials.subject, hubId);
+        setIsAuthenticating(false);
+        onFacilitatorLogin((credentials.facilitatorName || "").trim().toUpperCase(), credentials.subject, hubId);
       } else {
         if (credentials.pupilIndex) {
           setIsAuthenticating(false);
           onPupilLogin(parseInt(credentials.pupilIndex) || 0, hubId);
         } else {
-          throw new Error("Candidate identification failed.");
+          throw new Error("Candidate index required for entry.");
         }
       }
     } catch (err: any) {
@@ -132,7 +136,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         {isAuthenticating && (
           <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center space-y-6">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Establishing Node Handshake...</p>
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Verifying Institutional Registry...</p>
           </div>
         )}
 

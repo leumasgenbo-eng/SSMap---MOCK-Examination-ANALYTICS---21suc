@@ -1,4 +1,4 @@
--- UNITED BAYLOR ACADEMY (UBA) - DATABASE SCHEMA
+-- UNITED BAYLOR ACADEMY (UBA) - DATABASE SCHEMA (REFINED)
 -- Execute this in the Supabase SQL Editor
 
 -- 1. PERSISTENCE TABLE
@@ -15,25 +15,31 @@ CREATE TABLE IF NOT EXISTS public.uba_persistence (
 -- 2. SECURITY CONFIGURATION (RLS)
 ALTER TABLE public.uba_persistence ENABLE ROW LEVEL SECURITY;
 
--- Policy: Owners manage their own institutional data
--- Allows schools to read/write their own students and settings.
-CREATE POLICY "Institutions manage own data" ON public.uba_persistence
-FOR ALL TO authenticated
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+-- Drop existing policies to avoid conflicts during update
+DROP POLICY IF EXISTS "Institutions manage own data" ON public.uba_persistence;
+DROP POLICY IF EXISTS "Network registry discovery" ON public.uba_persistence;
+DROP POLICY IF EXISTS "Manage Own Data" ON public.uba_persistence;
+DROP POLICY IF EXISTS "Public Read Registry" ON public.uba_persistence;
 
--- Policy: Public Institutional Discovery
--- Allows the login portal to verify a Hub ID exists before attempting authentication.
--- This is critical for the "registry_*" prefix used in the app.
-CREATE POLICY "Network registry discovery" ON public.uba_persistence
+-- POLICY 1: Allow public/unauthenticated INSERT
+-- Required for the SchoolRegistrationPortal to create initial records during the signUp flow
+-- Upserting a NEW record only requires INSERT permission.
+CREATE POLICY "Enable initial registration" ON public.uba_persistence
+FOR INSERT TO anon, authenticated
+WITH CHECK (true);
+
+-- POLICY 2: Allow anyone (Public/Anon) to view the network registry
+-- Required for the LoginPortal to verify Hub IDs and Access Keys before sign-in
+CREATE POLICY "Public registry discovery" ON public.uba_persistence
 FOR SELECT TO anon, authenticated
 USING (id LIKE 'registry_%');
 
--- Policy: HQ Master Access
--- Optional: If you have a specific HQ User ID, you can grant them full override access.
--- CREATE POLICY "HQ Master Access" ON public.uba_persistence
--- FOR ALL TO authenticated
--- USING (auth.uid() = 'YOUR-HQ-USER-UUID-HERE');
+-- POLICY 3: Authenticated owners can manage their own data fully
+-- This covers SELECT, UPDATE, and DELETE for institutional shards (settings, students, etc.)
+CREATE POLICY "Owners manage own data" ON public.uba_persistence
+FOR ALL TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
 
 -- 3. INDEXING FOR PERFORMANCE
 CREATE INDEX IF NOT EXISTS idx_uba_persistence_user_id ON public.uba_persistence(user_id);
@@ -41,4 +47,15 @@ CREATE INDEX IF NOT EXISTS idx_uba_persistence_registry ON public.uba_persistenc
 
 -- 4. REAL-TIME ENABLEMENT
 -- Ensure the table is added to the 'supabase_realtime' publication for live syncing.
-ALTER PUBLICATION supabase_realtime ADD TABLE public.uba_persistence;
+-- Note: This might fail if already added, which is fine.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'uba_persistence'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.uba_persistence;
+  END IF;
+END $$;

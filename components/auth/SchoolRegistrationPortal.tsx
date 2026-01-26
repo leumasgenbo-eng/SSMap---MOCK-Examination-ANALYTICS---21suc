@@ -38,7 +38,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       const hubId = `UBA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const accessKey = `SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
-      // User-requested logic: Attach Hub ID to auth metadata
+      // 1. AUTH PROVISIONING
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: formData.registrantEmail.toLowerCase().trim(),
         password: accessKey, 
@@ -52,20 +52,19 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       });
 
       if (signUpError) {
-        alert("Registration failed: " + signUpError.message);
-        setIsSyncing(false);
-        return;
+        throw new Error("Registration Node Error: " + signUpError.message);
       }
 
       if (!authData.user) {
-        alert("Auth failed to establish session. Please verify email or try a different one.");
-        setIsSyncing(false);
-        return;
+        throw new Error("Auth state failed to initialize. User creation returned empty.");
       }
 
       const userId = authData.user.id;
+      const ts = new Date().toISOString();
 
+      // 2. PRIVATE SETTINGS SHARD
       const newSettings = {
+        ...settings,
         schoolName: formData.schoolName.toUpperCase(),
         schoolAddress: formData.location.toUpperCase(),
         registrantName: formData.registrant.toUpperCase(),
@@ -77,13 +76,17 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         enrollmentDate: new Date().toLocaleDateString()
       };
 
-      await supabase.from('uba_persistence').upsert({ 
+      // Perform direct insert/upsert for settings
+      const { error: settingsError } = await supabase.from('uba_persistence').insert({ 
         id: `${hubId}_settings`, 
         payload: newSettings, 
-        last_updated: new Date().toISOString(),
+        last_updated: ts,
         user_id: userId 
       });
 
+      if (settingsError) throw new Error("Settings Allocation Failed: " + settingsError.message);
+
+      // 3. NETWORK REGISTRY NODE (Critical for Hub Discovery)
       const newRegistryEntry: SchoolRegistryEntry = {
         id: hubId,
         name: formData.schoolName.toUpperCase(),
@@ -94,24 +97,29 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         avgAggregate: 0,
         performanceHistory: [],
         status: 'active',
-        lastActivity: new Date().toISOString()
+        lastActivity: ts
       };
 
-      await supabase.from('uba_persistence').upsert({ 
+      // Insert registry node
+      const { error: regError } = await supabase.from('uba_persistence').insert({ 
         id: `registry_${hubId}`, 
         payload: [newRegistryEntry], 
-        last_updated: new Date().toISOString(),
+        last_updated: ts,
         user_id: userId
       });
 
+      if (regError) throw new Error("Network Registry Sync Failed: " + regError.message);
+
+      // 4. LOCAL STATE SYNCHRONIZATION
       onBulkUpdate(newSettings);
       if (onResetStudents) onResetStudents();
+      
       setRegisteredData(newSettings);
       setIsRegistered(true);
       
     } catch (err: any) {
-      console.error("Enrollment failed:", err);
-      alert("Registration failed: " + (err.message || "Network Error"));
+      console.error("Enrollment sequence interrupted:", err);
+      alert(err.message || "Network Error: Hub creation timed out.");
     } finally {
       setIsSyncing(false);
     }
@@ -121,10 +129,15 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     const text = `SS-MAP - INSTITUTIONAL ACCESS PACK\n` +
                  `==================================================\n\n` +
                  `USE THESE 4 FIELDS TO LOGIN TO YOUR HUB:\n\n` +
-                 `1. Institution Name:   ${registeredData?.schoolName}\n` +
-                 `2. Institution ID:     ${registeredData?.schoolNumber}\n` +
+                 `1. Institution Name:    ${registeredData?.schoolName}\n` +
+                 `2. Institution Hub ID:  ${registeredData?.schoolNumber}\n` +
                  `3. Registered Director: ${registeredData?.registrantName}\n` +
                  `4. System Access Key:   ${registeredData?.accessCode}\n\n` +
+                 `--------------------------------------------------\n` +
+                 `REGISTRATION METADATA:\n` +
+                 `Locality: ${registeredData?.schoolAddress}\n` +
+                 `Contact:  ${registeredData?.schoolContact}\n` +
+                 `Email:    ${registeredData?.schoolEmail}\n\n` +
                  `* IMPORTANT: Save this file securely. Your Access Key is unique to your school.`;
     
     const blob = new Blob([text], { type: 'text/plain' });
@@ -143,7 +156,10 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
            <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4 border border-emerald-500/30">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
            </div>
-           <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Hub Registration Success</h2>
+           <div className="space-y-2">
+              <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Hub Registered Successfully</h2>
+              <p className="text-emerald-400/60 font-black text-[10px] uppercase tracking-[0.4em]">Node Established in Network Registry</p>
+           </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { label: 'Institution Hub ID', val: registeredData?.schoolNumber },
@@ -158,8 +174,8 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
               ))}
            </div>
            <div className="flex flex-wrap justify-center gap-4">
-              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all">Download Pack</button>
-              <button onClick={() => onComplete?.(registeredData)} className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95">Launch Institutional Hub</button>
+              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all">Download Login Pack</button>
+              <button onClick={() => onComplete?.(registeredData)} className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95">Launch Institutional Hub Interface</button>
            </div>
         </div>
       </div>
@@ -173,7 +189,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <div className="w-20 h-20 bg-blue-900 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-2 transition-transform hover:rotate-12">
                <img src={ACADEMY_ICON} alt="Shield" className="w-12 h-12" />
             </div>
-            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Onboard Institution</h2>
+            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Onboard New Institution</h2>
             <p className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]">Establish your academy hub on the cloud network</p>
         </div>
         <form onSubmit={handleEnrollment} className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">

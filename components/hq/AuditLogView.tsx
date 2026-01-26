@@ -6,11 +6,13 @@ interface AuditLogViewProps {
 }
 
 const AuditLogView: React.FC<AuditLogViewProps> = ({ auditTrail }) => {
-  // Fix: Explicitly cast Array.from result to string[] to resolve 'unknown' type error for localeCompare
-  const years = (Array.from(new Set(auditTrail.map(a => a.year))) as string[]).sort((a,b) => b.localeCompare(a));
+  // Ensure auditTrail items are treated safely
+  const years = (Array.from(new Set((auditTrail || []).map(a => a.year || new Date().getFullYear().toString()))) as string[])
+    .sort((a,b) => b.localeCompare(a));
+    
   const [selectedYear, setSelectedYear] = useState(years[0] || new Date().getFullYear().toString());
 
-  const filteredLogs = auditTrail.filter(log => log.year === selectedYear);
+  const filteredLogs = (auditTrail || []).filter(log => (log.year || "") === selectedYear);
 
   return (
     <div className="animate-in slide-in-from-left-8 duration-500 flex flex-col h-full">
@@ -26,7 +28,7 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ auditTrail }) => {
             onChange={(e) => setSelectedYear(e.target.value)}
             className="bg-slate-950 text-white font-black py-2.5 px-6 rounded-xl border border-slate-800 text-[10px] uppercase outline-none focus:ring-4 focus:ring-blue-500/20"
           >
-            {years.map(y => <option key={y} value={y}>{y} ACADEMIC PERIOD</option>)}
+            {years.length > 0 ? years.map(y => <option key={y} value={y}>{y} ACADEMIC PERIOD</option>) : <option value={new Date().getFullYear()}>{new Date().getFullYear()} PERIOD</option>}
           </select>
         </div>
       </div>
@@ -43,21 +45,21 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ auditTrail }) => {
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
                     <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${
-                      log.action.includes('MASTER') ? 'bg-indigo-500/20 text-indigo-400' : 
-                      log.action.includes('DECOMMISSION') ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                      (log.action || "").includes('MASTER') ? 'bg-indigo-500/20 text-indigo-400' : 
+                      (log.action || "").includes('DECOMMISSION') ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
                     }`}>
-                      {log.action}
+                      {log.action || "SYSTEM_EVENT"}
                     </span>
-                    <span className="text-[10px] font-mono text-slate-600">{new Date(log.timestamp).toLocaleString()}</span>
+                    <span className="text-[10px] font-mono text-slate-600">{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'TBA'}</span>
                   </div>
-                  <h4 className="text-sm font-black text-white uppercase tracking-tight">{log.details}</h4>
-                  <p className="text-[9px] font-black text-slate-500 uppercase">Target: <span className="text-slate-300">{log.target}</span></p>
+                  <h4 className="text-sm font-black text-white uppercase tracking-tight">{log.details || "Administrative node heartbeat detected."}</h4>
+                  <p className="text-[9px] font-black text-slate-500 uppercase">Target: <span className="text-slate-300">{log.target || "GLOBAL_NODE"}</span></p>
                 </div>
               </div>
               <div className="text-right">
                 <div className="bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
                   <span className="text-[8px] font-black text-slate-600 uppercase block mb-1">Actor Node</span>
-                  <span className="text-[10px] font-mono text-emerald-400 font-black">{log.actor}</span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-black">{log.actor || "SUPERADMIN"}</span>
                 </div>
               </div>
             </div>
