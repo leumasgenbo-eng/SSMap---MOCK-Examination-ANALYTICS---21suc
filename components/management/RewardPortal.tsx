@@ -9,10 +9,11 @@ interface RewardPortalProps {
   subjects: string[];
   facilitators: Record<string, StaffAssignment>;
   onSave: () => void;
+  onSettingChange?: (key: keyof GlobalSettings, value: any) => void;
   isFacilitator?: boolean;
 }
 
-const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, settings, subjects, facilitators, onSave, isFacilitator }) => {
+const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, settings, subjects, facilitators, onSave, onSettingChange, isFacilitator }) => {
   const [view, setView] = useState<'mock-postmortem' | 'facilitator-merit' | 'bece-entry' | 'bece-analysis' | 'annual-report'>('mock-postmortem');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [rewardPool, setRewardPool] = useState('10000'); // Fixed amount of money for distribution
@@ -283,7 +284,7 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
                          <div className="space-y-3">
                             <p className="text-[10px] font-mono text-emerald-300 uppercase">Formula: Active Series Mean / Baseline Series Mean</p>
                             <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                               Tracks longitudinal growth of the whole cohort. A value > 1.0 indicates that the facilitator has successfully improved the class average relative to the previous mock series, rewarding instructional progress.
+                               Tracks longitudinal growth of the whole cohort. A value &gt; 1.0 indicates that the facilitator has successfully improved the class average relative to the previous mock series, rewarding instructional progress.
                             </p>
                          </div>
                       </div>
@@ -318,7 +319,7 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
                    <div className="pt-8 border-t border-white/10 text-center">
                       <p className="text-[11px] font-black text-blue-500 uppercase tracking-[0.4em] mb-4">PLC Operational Decision Logic:</p>
                       <p className="text-xs text-slate-500 leading-relaxed italic max-w-4xl mx-auto">
-                        "The TEI identifies instructional efficiency. During **Professional Learning Communities (PLC)**, facilitators with TEI > 8.0 are designated as 'Pedagogical Hubs' to lead cross-departmental Section B calibration sessions. A declining TEI triggers a 'Strategy Friction' audit to adjust curriculum pacing."
+                        "The TEI identifies instructional efficiency. During **Professional Learning Communities (PLC)**, facilitators with TEI &gt; 8.0 are designated as 'Pedagogical Hubs' to lead cross-departmental Section B calibration sessions. A declining TEI triggers a 'Strategy Friction' audit to adjust curriculum pacing."
                       </p>
                    </div>
                 </div>
@@ -438,10 +439,10 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
                    {settings.schoolLogo && <img src={settings.schoolLogo} alt="Academy Logo" className="w-24 h-24 object-contain" />}
                    <div className="space-y-2">
                       <h1 className="text-4xl font-black text-blue-950 uppercase tracking-tighter leading-none">
-                         <EditableField value={settings.schoolName} onChange={(v) => onSave()} />
+                         <EditableField value={settings.schoolName} onChange={(v) => onSettingChange?.('schoolName', v)} />
                       </h1>
                       <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">
-                         <EditableField value={settings.schoolAddress} onChange={(v) => onSave()} />
+                         <EditableField value={settings.schoolAddress} onChange={(v) => onSettingChange?.('schoolAddress', v)} />
                       </p>
                       <div className="bg-blue-50 inline-block px-4 py-1 rounded-full border border-blue-100"><span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Enrollment Node: {settings.schoolNumber}</span></div>
                    </div>
@@ -537,7 +538,7 @@ const RewardPortal: React.FC<RewardPortalProps> = ({ students, setStudents, sett
              </section>
 
              <div className="bg-gray-50 p-12 rounded-[4rem] border-2 border-dashed border-gray-200">
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] mb-12 text-center">Institutional Verification & Authentication</h3>
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] mb-12 text-center">Institutional Verification & Authentication Registry</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-20">
                    <div className="text-center space-y-2"><div className="border-t-2 border-black pt-2 font-black uppercase text-[10px]">Head Teacher</div><p className="text-[8px] text-gray-400 italic">Instructional Integrity Verified</p></div>
                    <div className="text-center space-y-2"><div className="border-t-2 border-black pt-2 font-black uppercase text-[10px]">Registry Controller</div><p className="text-[8px] text-gray-400 italic">Data Persistence Validated</p></div>

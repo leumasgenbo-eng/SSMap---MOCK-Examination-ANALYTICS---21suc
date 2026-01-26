@@ -159,6 +159,14 @@ const App: React.FC = () => {
     bulkUpdateSettings({ resourcePortal: rp, mockSnapshots: ms });
   };
 
+  const clearData = () => {
+    if(window.confirm("Switch to Real Mode? This will clear all current demo session data.")) {
+        setStudents(RAW_STUDENTS);
+        setFacilitators({});
+        handleSave();
+    }
+  };
+
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
@@ -241,7 +249,7 @@ const App: React.FC = () => {
             students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} 
             subjects={SUBJECT_LIST} settings={settings} onSettingChange={handleSettingChange} 
             onBulkUpdate={bulkUpdateSettings} onSave={handleSave} processedSnapshot={processedStudents} 
-            onLoadDummyData={onLoadDummyData} onClearData={() => {}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator}
+            onLoadDummyData={onLoadDummyData} onClearData={clearData} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator}
           />
         )}
         {viewMode === 'pupil_hub' && isPupil && activePupil && (

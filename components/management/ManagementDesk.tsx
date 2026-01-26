@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { StudentData, GlobalSettings, ProcessedStudent, StaffAssignment } from '../../types';
 
@@ -96,7 +95,7 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
           {activeTab === 'scoreEntry' && <ScoreEntryPortal students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} subjects={subjects} processedSnapshot={processedSnapshot} onSave={onSave} />}
           {activeTab === 'facilitatorDesk' && <FacilitatorDesk students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'localSync' && <LocalSyncPortal students={students} settings={settings} onSyncComplete={(data) => { setStudents(data.students); onBulkUpdate(data.settings); onSave(); }} />}
-          {activeTab === 'rewards' && <RewardPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} facilitators={facilitators} onSave={onSave} isFacilitator={isFacilitator} />}
+          {activeTab === 'rewards' && <RewardPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} facilitators={facilitators} onSave={onSave} onSettingChange={onSettingChange} isFacilitator={isFacilitator} />}
           {activeTab === 'credentials' && (
             <SchoolRegistrationPortal 
               settings={settings} 
