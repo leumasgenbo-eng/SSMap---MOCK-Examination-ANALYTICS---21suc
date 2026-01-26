@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
+import { supabase } from './supabaseClient';
 
 // Organized Imports by Portal
 import MasterSheet from './components/reports/MasterSheet';
@@ -20,7 +21,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "", 
-  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
+  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrfV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
@@ -52,6 +53,8 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 };
 
 const App: React.FC = () => {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('master');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
@@ -65,56 +68,60 @@ const App: React.FC = () => {
   const [isRemoteViewing, setIsRemoteViewing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   
-  const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>(() => {
-    const saved = localStorage.getItem('uba_global_registry');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Data State
+  const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>([]);
+  const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
+  const [students, setStudents] = useState<StudentData[]>(RAW_STUDENTS);
+  const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
-  const [settings, setSettings] = useState<GlobalSettings>(() => {
-    const saved = localStorage.getItem('uba_app_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-  });
+  // SUPABASE PRE-FLIGHT GATE: Mandatory data retrieval before starting
+  const bootstrapData = useCallback(async () => {
+    setIsInitializing(true);
+    setSyncError(null);
+    try {
+      // 1. Handshake with Cloud Hub
+      const { data, error } = await supabase.from('uba_persistence').select('id, payload');
+      
+      if (error) {
+        throw new Error(error.message);
+      }
 
-  const [students, setStudents] = useState<StudentData[]>(() => {
-    const saved = localStorage.getItem('uba_students');
-    return saved ? JSON.parse(saved) : RAW_STUDENTS;
-  });
+      // 2. Map remote shards to state variables
+      const remoteData: Record<string, any> = {};
+      data?.forEach(row => { remoteData[row.id] = row.payload; });
 
-  const getDefaultFacilitators = useCallback(() => {
-    const initial: Record<string, StaffAssignment> = {};
-    Object.keys(FACILITATORS).forEach((key, idx) => {
-      initial[key] = {
-        name: '', 
-        role: 'FACILITATOR', 
-        enrolledId: `FAC-${(idx + 1).toString().padStart(3, '0')}`,
-        taughtSubject: key,
-        invigilations: Array.from({ length: 9 }, () => ({ dutyDate: '', timeSlot: '', subject: '' })),
-        marking: { dateTaken: '', dateReturned: '', inProgress: false }
-      };
-    });
-    return initial;
+      // 3. Update records with cloud truth
+      if (remoteData['registry']) setGlobalRegistry(remoteData['registry']);
+      if (remoteData['settings']) setSettings(remoteData['settings']);
+      if (remoteData['students']) setStudents(remoteData['students']);
+      if (remoteData['facilitators']) setFacilitators(remoteData['facilitators']);
+      else {
+           // Fallback to initial staff scaffold if not yet in cloud
+           const initial: Record<string, StaffAssignment> = {};
+           Object.keys(FACILITATORS).forEach((key, idx) => {
+             initial[key] = {
+               name: FACILITATORS[key], 
+               role: 'FACILITATOR', 
+               enrolledId: `FAC-${(idx + 1).toString().padStart(3, '0')}`,
+               taughtSubject: key,
+               invigilations: Array.from({ length: 9 }, () => ({ dutyDate: '', timeSlot: '', subject: '' })),
+               marking: { dateTaken: '', dateReturned: '', inProgress: false }
+             };
+           });
+           setFacilitators(initial);
+      }
+    } catch (err: any) {
+      console.warn("Supabase Sync Failed:", err.message);
+      setSyncError("Cloud Hub Unavailable. Running in Restricted Local Mode.");
+    } finally {
+      // Small visual delay for the "Establishing Secure Node" branding
+      setTimeout(() => setIsInitializing(false), 1200);
+    }
   }, []);
 
-  const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>(() => {
-    const saved = localStorage.getItem('uba_facilitators');
-    if (saved) return JSON.parse(saved);
-    const initial: Record<string, StaffAssignment> = {};
-    Object.keys(FACILITATORS).forEach((key, idx) => {
-      initial[key] = {
-        name: FACILITATORS[key], 
-        role: 'FACILITATOR', 
-        enrolledId: `FAC-${(idx + 1).toString().padStart(3, '0')}`,
-        taughtSubject: key,
-        invigilations: Array.from({ length: 9 }, () => ({ dutyDate: '', timeSlot: '', subject: '' })),
-        marking: { dateTaken: '', dateReturned: '', inProgress: false }
-      };
-    });
-    return initial;
-  });
-
-  useEffect(() => { if (!isRemoteViewing) localStorage.setItem('uba_app_settings', JSON.stringify(settings)); }, [settings, isRemoteViewing]);
-  useEffect(() => { if (!isRemoteViewing) localStorage.setItem('uba_students', JSON.stringify(students)); }, [students, isRemoteViewing]);
-  useEffect(() => { if (!isRemoteViewing) localStorage.setItem('uba_facilitators', JSON.stringify(facilitators)); }, [facilitators, isRemoteViewing]);
+  useEffect(() => {
+    bootstrapData();
+  }, [bootstrapData]);
 
   const handleSettingChange = (key: keyof GlobalSettings, value: any) => { setSettings(prev => ({ ...prev, [key]: value })); };
   const bulkUpdateSettings = useCallback((updates: Partial<GlobalSettings>) => { setSettings(prev => ({ ...prev, ...updates })); }, []);
@@ -136,132 +143,117 @@ const App: React.FC = () => {
         observations: { facilitator: "", invigilator: "", examiner: "" },
         attendance: 0, conductRemark: ""
       };
-      
       const newFacRemarks = { ...(mockSet.facilitatorRemarks || {}), overall: remark };
       return {
         ...s,
-        mockData: {
-          ...(s.mockData || {}),
-          [settings.activeMock]: { ...mockSet, facilitatorRemarks: newFacRemarks }
-        }
+        mockData: { ...(s.mockData || {}), [settings.activeMock]: { ...mockSet, facilitatorRemarks: newFacRemarks } }
       };
     }));
   }, [settings.activeMock]);
 
-  const initializeDemo = () => {
-    if (window.confirm("Initialize UNITED BAYLOR ACADEMY demo suite?")) {
+  // Universal Cloud Save Protocol
+  const handleSave = useCallback(async () => {
+    if (isRemoteViewing) return;
+    
+    const timestamp = new Date().toISOString();
+    const payload = [
+      { id: 'settings', payload: settings, last_updated: timestamp },
+      { id: 'students', payload: students, last_updated: timestamp },
+      { id: 'facilitators', payload: facilitators, last_updated: timestamp }
+    ];
+
+    try {
+      const { error } = await supabase.from('uba_persistence').upsert(payload, { onConflict: 'id' });
+      if (error) throw error;
+
+      if (settings.schoolNumber) {
+        const nextRegistry = [...globalRegistry];
+        const entryIdx = nextRegistry.findIndex(r => r.id === settings.schoolNumber);
+        if (entryIdx > -1) {
+          nextRegistry[entryIdx].fullData = { settings, students, facilitators };
+          nextRegistry[entryIdx].studentCount = students.length;
+          nextRegistry[entryIdx].lastActivity = timestamp;
+          
+          await supabase.from('uba_persistence').upsert({ 
+            id: 'registry', 
+            payload: nextRegistry, 
+            last_updated: timestamp 
+          });
+          setGlobalRegistry(nextRegistry);
+        }
+      }
+      alert("Cloud Sync Successful: Institutional Records Secured.");
+    } catch (err: any) {
+      alert("Cloud Save Restricted: Local Session Preservation Active.");
+    }
+  }, [settings, students, facilitators, globalRegistry, isRemoteViewing]);
+
+  const initializeDemo = async () => {
+    if (window.confirm("Initialize UNITED BAYLOR ACADEMY cloud demo suite?")) {
       const { students: demoStudents, resourcePortal, mockSnapshots, registryEntry } = generateFullDemoSuite();
       setStudents(demoStudents);
-      setSettings(prev => ({ 
-        ...prev, 
+      const nextSettings = { 
+        ...settings, 
         schoolName: "UNITED BAYLOR ACADEMY", 
         schoolNumber: "UBA-2025-001",
         accessCode: "SSMAP-HQ-SECURE",
         resourcePortal,
         mockSnapshots,
         activeMock: "MOCK 3" 
-      }));
+      };
+      setSettings(nextSettings);
 
-      const existingRegistry: SchoolRegistryEntry[] = JSON.parse(localStorage.getItem('uba_global_registry') || '[]');
-      const filteredRegistry = existingRegistry.filter(r => r.id !== registryEntry.id);
+      const filteredRegistry = globalRegistry.filter(r => r.id !== registryEntry.id);
       filteredRegistry.push({
           ...registryEntry,
           name: "UNITED BAYLOR ACADEMY",
-          fullData: { settings: { ...DEFAULT_SETTINGS, resourcePortal, mockSnapshots, schoolName: "UNITED BAYLOR ACADEMY", schoolNumber: "UBA-2025-001", accessCode: "SSMAP-HQ-SECURE" }, students: demoStudents, facilitators }
+          fullData: { settings: nextSettings, students: demoStudents, facilitators }
       });
-      localStorage.setItem('uba_global_registry', JSON.stringify(filteredRegistry));
+      
       setGlobalRegistry(filteredRegistry);
-      alert("Demo Data Synchronized.");
+      setTimeout(() => handleSave(), 200);
     }
   };
 
-  const handleClearData = () => {
-    if (window.confirm("SWITCH TO REAL MODE: This will wipe all pupil names, scores, and staff identity to allow for fresh institutional data entry. Institutional credentials will remain. Proceed?")) {
-      setStudents([]); 
-      setFacilitators(getDefaultFacilitators()); 
-      setSettings(prev => ({
-        ...prev,
-        resourcePortal: {},
-        mockSnapshots: {}
-      }));
-      alert("Demo data deactivated. Institutional areas are now ready for real data entry.");
-    }
-  };
-
-  const handleSave = useCallback(() => {
-    if (isRemoteViewing) return;
-    localStorage.setItem('uba_app_settings', JSON.stringify(settings));
-    localStorage.setItem('uba_students', JSON.stringify(students));
-    localStorage.setItem('uba_facilitators', JSON.stringify(facilitators));
-    if (settings.schoolNumber) {
-      const registry: SchoolRegistryEntry[] = JSON.parse(localStorage.getItem('uba_global_registry') || '[]');
-      const entryIdx = registry.findIndex(r => r.id === settings.schoolNumber);
-      if (entryIdx > -1) {
-        registry[entryIdx].fullData = { settings, students, facilitators };
-        registry[entryIdx].studentCount = students.length;
-        registry[entryIdx].lastActivity = new Date().toISOString();
-        localStorage.setItem('uba_global_registry', JSON.stringify(registry));
-        setGlobalRegistry(registry);
-      }
-    }
-  }, [settings, students, facilitators, isRemoteViewing]);
-
-  const handleRemoteView = (schoolId: string) => {
-    const registry: SchoolRegistryEntry[] = JSON.parse(localStorage.getItem('uba_global_registry') || '[]');
-    const school = registry.find(r => r.id === schoolId);
-    if (school && school.fullData) {
-      setSettings(school.fullData.settings); setStudents(school.fullData.students); setFacilitators(school.fullData.facilitators);
-      setIsRemoteViewing(true); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('master');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setIsSuperAdmin(false);
-    setIsFacilitator(false);
-    setIsPupil(false);
-    setActiveFacilitator(null);
-    setActivePupil(null);
-    setIsRemoteViewing(false);
-  };
-
-  const handleFacilitatorLogin = (name: string, subject: string) => {
-    setIsFacilitator(true);
-    setActiveFacilitator({ name, subject });
-    setIsAuthenticated(true);
-    setViewMode('master');
-  };
-
-  const handlePupilLogin = (studentId: number) => {
-    const student = processedStudents.find(s => s.id === studentId);
-    if (student) {
-      setActivePupil(student);
-      setIsPupil(true);
-      setIsAuthenticated(true);
-      setViewMode('pupil_hub');
-    }
-  };
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-10 animate-in fade-in duration-500 p-8">
+        <div className="relative">
+           <div className="w-32 h-32 border-4 border-blue-900/20 rounded-[3rem] animate-pulse"></div>
+           <div className="absolute inset-0 w-32 h-32 border-4 border-blue-500 border-t-transparent rounded-[3rem] animate-spin"></div>
+           <div className="absolute inset-0 flex items-center justify-center">
+              <img src={DEFAULT_SETTINGS.schoolLogo} alt="Shield" className="w-16 h-16 object-contain" />
+           </div>
+        </div>
+        <div className="text-center space-y-4">
+           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Establishing Secure Node</h2>
+           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em] animate-pulse">
+             {syncError ? syncError : "Retrieving Cloud Records..."}
+           </p>
+           {syncError && (
+             <button onClick={bootstrapData} className="mt-4 bg-white/10 hover:bg-white text-white hover:text-slate-900 px-8 py-3 rounded-2xl font-black text-[10px] uppercase transition-all">
+               Retry Handshake
+             </button>
+           )}
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900 via-slate-900 to-black">
         {isRegistering ? (
           <SchoolRegistrationPortal 
-            settings={settings}
-            onBulkUpdate={bulkUpdateSettings}
-            onSave={handleSave}
-            onComplete={() => { setIsRegistering(false); }}
-            onSwitchToLogin={() => setIsRegistering(false)}
+            settings={settings} onBulkUpdate={bulkUpdateSettings} onSave={handleSave}
+            onComplete={() => setIsRegistering(false)} onSwitchToLogin={() => setIsRegistering(false)}
           />
         ) : (
           <LoginPortal 
-            settings={settings} 
-            facilitators={facilitators}
-            processedStudents={processedStudents}
-            onLoginSuccess={() => setIsAuthenticated(true)} 
-            onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={handleFacilitatorLogin}
-            onPupilLogin={handlePupilLogin}
+            settings={settings} facilitators={facilitators} processedStudents={processedStudents}
+            onLoginSuccess={() => setIsAuthenticated(true)} onSuperAdminLogin={() => setIsSuperAdmin(true)} 
+            onFacilitatorLogin={(name, subject) => { setIsFacilitator(true); setActiveFacilitator({ name, subject }); setIsAuthenticated(true); setViewMode('master'); }}
+            onPupilLogin={(id) => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }}
             onSwitchToRegister={() => setIsRegistering(true)}
           />
         )}
@@ -269,31 +261,16 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={handleRemoteView} />;
-
-  const isLandscapeView = viewMode === 'master' || viewMode === 'series';
+  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => {
+    const school = globalRegistry.find(r => r.id === id);
+    if (school && school.fullData) {
+      setSettings(school.fullData.settings); setStudents(school.fullData.students); setFacilitators(school.fullData.facilitators);
+      setIsRemoteViewing(true); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('master');
+    }
+  }} />;
 
   return (
-    <div className={`min-h-screen bg-gray-100 font-sans flex flex-col ${isLandscapeView ? 'print-landscape' : 'print-portrait'}`}>
-      {isRemoteViewing && (
-        <div className="no-print bg-red-600 text-white px-4 py-2 flex justify-between items-center text-[10px] font-black uppercase tracking-widest animate-pulse z-[60]">
-          <div>HQ REMOTE COMMAND: {settings.schoolName}</div>
-          <button onClick={() => setIsRemoteViewing(false)} className="bg-white text-red-600 px-4 py-1.5 rounded-lg font-black uppercase text-[8px]">Exit Command</button>
-        </div>
-      )}
-
-      {isFacilitator && (
-        <div className="no-print bg-indigo-700 text-white px-4 py-1.5 flex justify-center items-center text-[9px] font-black uppercase tracking-[0.3em] z-[60]">
-          Facilitator Command: {activeFacilitator?.name} ({activeFacilitator?.subject})
-        </div>
-      )}
-
-      {isPupil && (
-        <div className="no-print bg-emerald-700 text-white px-4 py-1.5 flex justify-center items-center text-[9px] font-black uppercase tracking-[0.3em] z-[60]">
-          Candidate Session: {activePupil?.name} (ID: {activePupil?.id})
-        </div>
-      )}
-
+    <div className={`min-h-screen bg-gray-100 font-sans flex flex-col ${viewMode === 'master' || viewMode === 'series' ? 'print-landscape' : 'print-portrait'}`}>
       <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center flex-wrap gap-2">
         <div className="flex bg-blue-800 rounded p-1 text-[10px] md:text-sm">
           {!isPupil ? (
@@ -308,9 +285,9 @@ const App: React.FC = () => {
           )}
         </div>
         <div className="flex gap-2">
-           {!isRemoteViewing && !isPupil && <button onClick={() => { handleSave(); alert("Records Synchronized."); }} className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Save All</button>}
-           <button onClick={() => window.print()} className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Print View</button>
-           <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-black text-xs uppercase ml-2">Logout</button>
+           {!isRemoteViewing && !isPupil && <button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Cloud Sync</button>}
+           <button onClick={() => window.print()} className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Print</button>
+           <button onClick={() => { setIsAuthenticated(false); setIsSuperAdmin(false); setIsFacilitator(false); setIsPupil(false); }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-black text-xs uppercase ml-2">Logout</button>
         </div>
       </div>
 
@@ -330,18 +307,13 @@ const App: React.FC = () => {
             students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} 
             subjects={SUBJECT_LIST} settings={settings} onSettingChange={handleSettingChange} 
             onBulkUpdate={bulkUpdateSettings} onSave={handleSave} processedSnapshot={processedStudents} 
-            onLoadDummyData={initializeDemo} onClearData={handleClearData} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator}
+            onLoadDummyData={initializeDemo} onClearData={() => {}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator}
           />
         )}
         {viewMode === 'pupil_hub' && isPupil && activePupil && (
           <PupilDashboard 
-            student={activePupil} 
-            stats={stats} 
-            settings={settings} 
-            classAverageAggregate={classAvgAggregate} 
-            totalEnrolled={processedStudents.length} 
-            onSettingChange={handleSettingChange}
-            globalRegistry={globalRegistry}
+            student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} 
+            totalEnrolled={processedStudents.length} onSettingChange={handleSettingChange} globalRegistry={globalRegistry}
           />
         )}
       </div>

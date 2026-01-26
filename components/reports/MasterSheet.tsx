@@ -182,8 +182,10 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
               <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Identity Verification Required</p>
            </div>
            <div className="flex flex-col items-center">
-              <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">Director's Endorsement</div>
-              <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Institutional Approval Seal</p>
+              <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
+                 <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center" />
+              </div>
+              <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Director's Endorsement & Seal</p>
            </div>
         </div>
       </div>

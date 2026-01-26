@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { ProcessedStudent, GlobalSettings, ClassStatistics } from '../../types';
 import EditableField from '../shared/EditableField';
@@ -176,7 +175,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
           </div>
        </div>
 
-       {/* NRT Logic Appendix - VISIBLE TO ALL ROLES */}
+       {/* NRT Logic Appendix */}
        <div className="mt-auto pt-4 border-t border-gray-200">
           <div className="bg-gray-900 text-white p-4 rounded-xl space-y-2">
              <div className="flex justify-between items-center">
@@ -193,7 +192,12 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
 
        {/* Signatures & Resumption */}
        <div className="flex justify-between items-end mt-auto pb-6 pt-10 border-t border-gray-100">
-         <div className="w-[30%] text-center border-t-2 border-gray-900 pt-2 text-[9px] font-black uppercase text-gray-500 tracking-widest">Academy Director</div>
+         <div className="w-[30%] text-center border-t-2 border-gray-900 pt-2">
+            <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1">Academy Director</p>
+            <div className="font-black text-blue-900 text-[10px] uppercase">
+               <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center" />
+            </div>
+         </div>
          <div className="w-[30%] text-center border-t-2 border-gray-900 pt-2">
             <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1">Resumption Protocol</p>
             <p className="text-[10px] font-black text-red-700 font-mono">{new Date(settings.nextTermBegin).toLocaleDateString(undefined, { dateStyle: 'long' }).toUpperCase()}</p>

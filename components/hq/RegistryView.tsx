@@ -14,6 +14,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({ registry, searchTerm, setSe
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [credentialPreview, setCredentialPreview] = useState<SchoolRegistryEntry | null>(null);
+  const [showSecretInPreview, setShowSecretInPreview] = useState(false);
 
   const filtered = registry.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -158,7 +159,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({ registry, searchTerm, setSe
       {credentialPreview && (
         <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-300">
            <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl relative">
-              <button onClick={() => setCredentialPreview(null)} className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors">
+              <button onClick={() => { setCredentialPreview(null); setShowSecretInPreview(false); }} className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
               
@@ -177,9 +178,23 @@ const RegistryView: React.FC<RegistryViewProps> = ({ registry, searchTerm, setSe
                    { label: 'Primary Contact Node', val: credentialPreview.fullData?.settings.schoolContact || "N/A", secret: false },
                    { label: 'Registered Registry Email', val: credentialPreview.fullData?.settings.schoolEmail || "N/A", secret: false }
                  ].map((f, i) => (
-                   <div key={i} className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1 group/field">
+                   <div key={i} className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1 group/field relative">
                       <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{f.label}</span>
-                      <p className={`text-sm font-black uppercase ${f.secret ? 'text-emerald-400 font-mono tracking-[0.2em]' : 'text-slate-300'}`}>{f.val}</p>
+                      <p className={`text-sm font-black uppercase ${f.secret && !showSecretInPreview ? 'text-slate-700 blur-sm select-none' : f.secret ? 'text-emerald-400 font-mono tracking-[0.2em]' : 'text-slate-300'}`}>
+                        {f.val}
+                      </p>
+                      {f.secret && (
+                        <button 
+                          onClick={() => setShowSecretInPreview(!showSecretInPreview)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400 transition-colors"
+                        >
+                          {showSecretInPreview ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          )}
+                        </button>
+                      )}
                    </div>
                  ))}
               </div>
@@ -189,10 +204,10 @@ const RegistryView: React.FC<RegistryViewProps> = ({ registry, searchTerm, setSe
                    onClick={() => handleForwardCredentials(credentialPreview)}
                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all"
                  >
-                   Disbatch Forwarding
+                   Dispatch Forwarding
                  </button>
                  <button 
-                   onClick={() => setCredentialPreview(null)}
+                   onClick={() => { setCredentialPreview(null); setShowSecretInPreview(false); }}
                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-400 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all"
                  >
                    Close Gate

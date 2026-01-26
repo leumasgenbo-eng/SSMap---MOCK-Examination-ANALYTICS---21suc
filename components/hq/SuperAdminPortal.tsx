@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SchoolRegistryEntry, RemarkMetric } from '../../types';
+import { supabase } from '../../supabaseClient';
 
 // Sub-portals
 import RegistryView from './RegistryView';
@@ -11,7 +12,6 @@ import NetworkRewardsView from './NetworkRewardsView';
 import NetworkSigDiffView from './NetworkSigDiffView';
 import NetworkAnnualAuditReport from './NetworkAnnualAuditReport';
 
-// Fix: Exported SubjectDemandMetric interface required by RemarkAnalyticsView
 export interface SubjectDemandMetric {
   subject: string;
   demandScore: number;
@@ -38,14 +38,27 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const [searchTerm, setSearchTerm] = useState('');
   const [view, setView] = useState<'registry' | 'rankings' | 'remarks' | 'audit' | 'pupils' | 'rewards' | 'sig-diff' | 'annual-report'>('registry');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
+  // Initial Cloud Load
   useEffect(() => {
-    const savedReg = localStorage.getItem('uba_global_registry');
-    if (savedReg) setRegistry(JSON.parse(savedReg));
-    
-    const savedAudit = localStorage.getItem('uba_master_audit_trail');
-    if (savedAudit) setAuditTrail(JSON.parse(savedAudit));
+    const fetchHQData = async () => {
+      const { data, error } = await supabase.from('uba_persistence').select('id, payload');
+      if (error) return;
+      
+      data.forEach(row => {
+        if (row.id === 'registry') setRegistry(row.payload);
+        if (row.id === 'audit') setAuditTrail(row.payload);
+      });
+    };
+    fetchHQData();
   }, []);
+
+  const syncHQData = async (type: 'registry' | 'audit', payload: any) => {
+    setIsCloudSyncing(true);
+    await supabase.from('uba_persistence').upsert({ id: type, payload, last_updated: new Date().toISOString() });
+    setIsCloudSyncing(false);
+  };
 
   const logAction = (action: string, target: string, details: string) => {
     const newEntry: SystemAuditEntry = {
@@ -58,12 +71,12 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
     };
     const nextAudit = [newEntry, ...auditTrail];
     setAuditTrail(nextAudit);
-    localStorage.setItem('uba_master_audit_trail', JSON.stringify(nextAudit));
+    syncHQData('audit', nextAudit);
   };
 
   const handleUpdateRegistry = (next: SchoolRegistryEntry[]) => {
     setRegistry(next);
-    localStorage.setItem('uba_global_registry', JSON.stringify(next));
+    syncHQData('registry', next);
   };
 
   const handleMasterBackup = () => {
@@ -86,88 +99,54 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const json = JSON.parse(e.target?.result as string);
         if (json.type !== "SSMAP_MASTER_SNAPSHOT") throw new Error("Invalid format.");
-        if (window.confirm(`RESTORE PROTOCOL: Overwrite current network with ${json.registry.length} nodes? This cannot be undone.`)) {
+        if (window.confirm(`RESTORE PROTOCOL: Overwrite current network with ${json.registry.length} nodes?`)) {
           setRegistry(json.registry);
           setAuditTrail(json.auditTrail || []);
-          localStorage.setItem('uba_global_registry', JSON.stringify(json.registry));
-          localStorage.setItem('uba_master_audit_trail', JSON.stringify(json.auditTrail || []));
+          await syncHQData('registry', json.registry);
+          await syncHQData('audit', json.auditTrail || []);
           logAction("MASTER_RESTORE", "GLOBAL_SYSTEM", `System restored from backup dated ${json.timestamp}`);
-          alert("Network State Restored.");
+          alert("Cloud State Restored.");
         }
-      } catch (err) { alert("Restore Error: File corrupted or invalid."); }
+      } catch (err) { alert("Restore Error: File corrupted."); }
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Fix: Added calculation for school rankings used by ReratingView
   const schoolRankings = useMemo(() => {
     const processed = registry.map(school => {
       const history = school.performanceHistory || [];
       const latest = history[history.length - 1];
-      return {
-        id: school.id,
-        name: school.name,
-        compositeAvg: latest?.avgComposite || 0,
-        aggregateAvg: latest?.avgAggregate || 0,
-        objectiveAvg: latest?.avgObjective || 0,
-        theoryAvg: latest?.avgTheory || 0,
-      };
+      return { id: school.id, name: school.name, compositeAvg: latest?.avgComposite || 0, aggregateAvg: latest?.avgAggregate || 0, objectiveAvg: latest?.avgObjective || 0, theoryAvg: latest?.avgTheory || 0 };
     });
-
     const calculateStats = (vals: number[]) => {
       if (vals.length === 0) return { mean: 0, std: 1 };
       const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
       const std = Math.sqrt(vals.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b, 0) / vals.length) || 1;
       return { mean, std };
     };
-
     const cStats = calculateStats(processed.map(p => p.compositeAvg));
     const aStats = calculateStats(processed.map(p => p.aggregateAvg));
-
     return processed.map(p => {
       const zC = (p.compositeAvg - cStats.mean) / cStats.std;
       const zA = -(p.aggregateAvg - aStats.mean) / aStats.std;
-      const strengthIndex = (zC + zA) / 2 + 5;
-      return { ...p, strengthIndex };
+      return { ...p, strengthIndex: (zC + zA) / 2 + 5 };
     }).sort((a, b) => b.strengthIndex - a.strengthIndex);
   }, [registry]);
 
-  // Fix: Added calculation for subject demands used by RemarkAnalyticsView
   const subjectDemands = useMemo(() => {
     const map: Record<string, SubjectDemandMetric> = {};
-    
     registry.forEach(school => {
       const tel = school.remarkTelemetry;
       if (!tel || !tel.subjectRemarks) return;
-      
-      // Fix: Explicitly cast Object.entries result to resolve unknown type inference for metrics which caused Property 'forEach' does not exist on type 'unknown' error
       (Object.entries(tel.subjectRemarks) as [string, RemarkMetric[]][]).forEach(([subject, metrics]) => {
-        if (!map[subject]) {
-          map[subject] = {
-            subject,
-            demandScore: 0,
-            difficultyRating: 0,
-            networkMeanPerformance: 68.5,
-            maleRemarkShare: 0,
-            femaleRemarkShare: 0,
-            topRemark: metrics[0]?.text || "No specific observations recorded.",
-            remarkCount: 0
-          };
-        }
-        
-        let subMales = 0;
-        let subFemales = 0;
-        metrics.forEach(m => {
-          map[subject].remarkCount += m.count;
-          subMales += m.maleCount;
-          subFemales += m.femaleCount;
-        });
-
+        if (!map[subject]) map[subject] = { subject, demandScore: 0, difficultyRating: 0, networkMeanPerformance: 68.5, maleRemarkShare: 0, femaleRemarkShare: 0, topRemark: metrics[0]?.text || "No findings.", remarkCount: 0 };
+        let subMales = 0, subFemales = 0;
+        metrics.forEach(m => { map[subject].remarkCount += m.count; subMales += m.maleCount; subFemales += m.femaleCount; });
         const total = subMales + subFemales || 1;
         map[subject].maleRemarkShare = (subMales / total) * 100;
         map[subject].femaleRemarkShare = (subFemales / total) * 100;
@@ -175,15 +154,8 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         map[subject].difficultyRating = Math.min(10, Math.ceil(map[subject].remarkCount / 10));
       });
     });
-
     return Object.values(map);
   }, [registry]);
-
-  const stats = useMemo(() => ({
-    total: registry.length,
-    active: registry.filter(r => r.status === 'active').length,
-    totalStudents: registry.reduce((sum, r) => sum + r.studentCount, 0)
-  }), [registry]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8 animate-in fade-in duration-700">
@@ -196,13 +168,14 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
             </div>
             <div>
               <h1 className="text-3xl font-black uppercase tracking-tighter text-white">Superadmin Master Hub</h1>
-              <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.4em] mt-1">Institutional Network Management System (SS-MAP)</p>
+              <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.4em] mt-1">
+                 {isCloudSyncing ? "DATABASE SYNCHRONIZING..." : "Institutional Network Cloud Active"}
+              </p>
             </div>
           </div>
           
           <div className="flex flex-wrap gap-4">
             <div className="flex bg-slate-900/50 p-1 rounded-2xl border border-slate-800 backdrop-blur-md overflow-x-auto no-scrollbar max-w-full">
-              {/* Fix: Restored full navigation tabs to access all portal views */}
               {[
                 { id: 'registry', label: 'Network Ledger' },
                 { id: 'rankings', label: 'Rerating' },
@@ -221,9 +194,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Master Backup
                </button>
-               <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-3 rounded-2xl font-black text-[10px] uppercase border border-slate-700 transition-all">
-                  Restore
-               </button>
+               <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-3 rounded-2xl font-black text-[10px] uppercase border border-slate-700 transition-all">Restore</button>
                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleMasterRestore} />
                <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase border border-red-500/20 transition-all">Exit HQ</button>
             </div>
@@ -231,16 +202,8 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         </header>
 
         <div className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[600px] overflow-hidden relative">
-          {/* Fix: Restored conditional rendering for all portal views */}
           {view === 'registry' && (
-            <RegistryView 
-              registry={registry} 
-              searchTerm={searchTerm} 
-              setSearchTerm={setSearchTerm} 
-              onRemoteView={onRemoteView} 
-              onUpdateRegistry={handleUpdateRegistry}
-              onLogAction={logAction}
-            />
+            <RegistryView registry={registry} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onRemoteView={onRemoteView} onUpdateRegistry={handleUpdateRegistry} onLogAction={logAction} />
           )}
           {view === 'rankings' && <ReratingView schoolRankings={schoolRankings} />}
           {view === 'remarks' && <RemarkAnalyticsView subjectDemands={subjectDemands} />}
