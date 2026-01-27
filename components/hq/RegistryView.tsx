@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SchoolRegistryEntry } from '../../types';
+import { supabase } from '../../supabaseClient';
 
 interface RegistryViewProps {
   registry: SchoolRegistryEntry[];
@@ -21,9 +22,20 @@ const RegistryView: React.FC<RegistryViewProps> = ({ registry, searchTerm, setSe
     r.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSaveName = (id: string) => {
+  const handleSaveName = async (id: string) => {
     const original = registry.find(r => r.id === id);
-    const next = registry.map(r => r.id === id ? { ...r, name: editName.toUpperCase() } : r);
+    if (!original) return;
+
+    const updatedEntry = { ...original, name: editName.toUpperCase() };
+    const next = registry.map(r => r.id === id ? updatedEntry : r);
+    
+    // Push targeted shard update to Supabase
+    await supabase.from('uba_persistence').upsert({ 
+      id: `registry_${id}`, 
+      payload: [updatedEntry], 
+      last_updated: new Date().toISOString() 
+    });
+
     onUpdateRegistry(next);
     onLogAction("IDENTITY_MODULATION", id, `School name updated from "${original?.name}" to "${editName.toUpperCase()}"`);
     setEditingId(null);
@@ -39,11 +51,14 @@ const RegistryView: React.FC<RegistryViewProps> = ({ registry, searchTerm, setSe
     }
   };
 
-  const handleDecommission = (id: string) => {
-    if (window.confirm("CRITICAL: Permanent decommissioning of institution? This erases all associated data nodes.")) {
+  const handleDecommission = async (id: string) => {
+    if (window.confirm("CRITICAL: Permanent decommissioning of institution? This erases all associated data nodes in the registry.")) {
+      // Delete the registry shard
+      await supabase.from('uba_persistence').delete().eq('id', `registry_${id}`);
+      
       const next = registry.filter(r => r.id !== id);
       onUpdateRegistry(next);
-      onLogAction("DECOMMISSION_HUB", id, "Institution wiped from network.");
+      onLogAction("DECOMMISSION_HUB", id, "Institution wiped from network registry.");
     }
   };
 

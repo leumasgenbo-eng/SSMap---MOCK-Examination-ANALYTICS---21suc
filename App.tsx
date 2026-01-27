@@ -68,18 +68,27 @@ const App: React.FC = () => {
   const [students, setStudents] = useState<StudentData[]>(RAW_STUDENTS);
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // PRIMARY HANDSHAKE: Fetch Registry (Public Discovery Mode)
   const fetchRegistry = useCallback(async () => {
     try {
-      const { data } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
+      const { data, error } = await supabase
+        .from('uba_persistence')
+        .select('payload')
+        .like('id', 'registry_%');
+      
+      if (error) throw error;
+
       if (data) {
          setGlobalRegistry(data.flatMap(row => {
            if (!row.payload) return [];
            return Array.isArray(row.payload) ? row.payload : [row.payload];
          }) as SchoolRegistryEntry[]);
       }
-    } catch (err) { console.warn("Registry sync unavailable."); }
+    } catch (err: any) { 
+      console.warn("Handshake Note: Registry unavailable.", err.message); 
+    }
     finally { setIsInitializing(false); }
   }, []);
 
@@ -87,7 +96,13 @@ const App: React.FC = () => {
     if (!hubId) return;
     setIsInitializing(true);
     try {
-      const { data } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
+      const { data, error } = await supabase
+        .from('uba_persistence')
+        .select('id, payload')
+        .like('id', `${hubId}_%`);
+      
+      if (error) throw error;
+
       if (data) {
         data.forEach(row => {
           if (row.id === `${hubId}_settings` && row.payload) setSettings(row.payload);
@@ -95,22 +110,31 @@ const App: React.FC = () => {
           if (row.id === `${hubId}_facilitators` && row.payload) setFacilitators(row.payload);
         });
       }
-    } catch (err) { console.error("Institutional data fetch failed."); }
+    } catch (err: any) { 
+      console.error("Institutional Fetch Error:", err.message); 
+    }
     finally { setIsInitializing(false); }
   };
 
   useEffect(() => { fetchRegistry(); }, [fetchRegistry]);
 
-  // Real-time Persistence Handshake
+  // Real-time Persistence Handshake (Owner Sync Mode)
   useEffect(() => {
     let channel: any;
     const initSync = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      channel = supabase.channel(`sync-${user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'uba_persistence', filter: `user_id=eq.${user.id}` }, (payload) => {
+
+      channel = supabase.channel(`sync-${user.id}`).on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'uba_persistence', 
+        filter: `user_id=eq.${user.id}` 
+      }, (payload) => {
         const newRow = payload.new as any;
         if (!newRow || !newRow.payload) return;
         const hubId = settings.schoolNumber;
+        
         if (newRow.id === `${hubId}_settings`) setSettings(newRow.payload);
         if (newRow.id === `${hubId}_students`) setStudents(newRow.payload);
         if (newRow.id === `${hubId}_facilitators`) setFacilitators(newRow.payload);
@@ -134,44 +158,86 @@ const App: React.FC = () => {
   const handleSave = useCallback(async () => {
     const hubId = settings.schoolNumber;
     if (!hubId) return;
+    
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return; // Exit silently if no user (prevents warning noise)
+
     const ts = new Date().toISOString();
     const shards = [
       { id: `${hubId}_settings`, payload: settings, user_id: user.id, last_updated: ts },
       { id: `${hubId}_students`, payload: students, user_id: user.id, last_updated: ts },
       { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts }
     ];
-    await supabase.from('uba_persistence').upsert(shards);
-    const regEntry = { 
-      id: hubId, 
-      name: settings.schoolName || "UNITED BAYLOR ACADEMY", 
-      studentCount: students.length, 
-      avgAggregate: classAvgAggregate, 
-      status: 'active', 
-      lastActivity: ts,
-      accessCode: settings.accessCode,
-      registrant: settings.registrantName
-    };
-    await supabase.from('uba_persistence').upsert({ id: `registry_${hubId}`, payload: [regEntry], user_id: user.id, last_updated: ts });
+
+    try {
+      await supabase.from('uba_persistence').upsert(shards);
+      
+      const regEntry = { 
+        id: hubId, 
+        name: settings.schoolName || "UNITED BAYLOR ACADEMY", 
+        studentCount: students.length, 
+        avgAggregate: classAvgAggregate, 
+        status: 'active', 
+        lastActivity: ts,
+        accessCode: settings.accessCode,
+        registrant: settings.registrantName
+      };
+
+      await supabase.from('uba_persistence').upsert({ 
+        id: `registry_${hubId}`, 
+        payload: [regEntry], 
+        user_id: user.id, 
+        last_updated: ts 
+      });
+    } catch (err: any) {
+      console.error("Cloud Persistence Interrupted:", err.message);
+    }
   }, [settings, students, facilitators, classAvgAggregate]);
 
-  // Auto-Sync Particulars (Debounced)
+  // Auto-Sync logic with Authenticated Guard
   useEffect(() => {
+    // ONLY trigger auto-save if we are authenticated.
+    // This removes the "Save blocked" warning during the login/registration phase.
+    if (!isAuthenticated && !isSuperAdmin) return;
+
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => { handleSave(); }, 1500);
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
-  }, [settings.schoolName, settings.schoolAddress, settings.schoolNumber, settings.examTitle]);
+  }, [settings.schoolName, settings.schoolAddress, settings.schoolNumber, settings.examTitle, isAuthenticated, isSuperAdmin, handleSave]);
 
-  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500"><div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Node Handshake</p></div>;
+  if (isInitializing) return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
+      <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div>
+      <div className="text-center space-y-2">
+        <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Registry Handshake</p>
+        <p className="text-[8px] text-slate-600 uppercase font-bold">Node: {supabase.supabaseUrl.split('//')[1].split('.')[0]}</p>
+      </div>
+    </div>
+  );
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900 via-slate-900 to-black">
         {isRegistering ? (
-          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSave} onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); fetchRegistry(); }} onSwitchToLogin={() => setIsRegistering(false)} />
+          <SchoolRegistrationPortal 
+            settings={settings} 
+            onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
+            onSave={handleSave} 
+            onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); fetchRegistry(); }} 
+            onSwitchToLogin={() => setIsRegistering(false)} 
+          />
         ) : (
-          <LoginPortal settings={settings} processedStudents={processedStudents} globalRegistry={globalRegistry} initialCredentials={postRegistrationData} onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} onSwitchToRegister={() => setIsRegistering(true)} />
+          <LoginPortal 
+            settings={settings} 
+            processedStudents={processedStudents} 
+            globalRegistry={globalRegistry} 
+            initialCredentials={postRegistrationData} 
+            onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
+            onSuperAdminLogin={() => setIsSuperAdmin(true)} 
+            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} 
+            onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} 
+            onSwitchToRegister={() => setIsRegistering(true)} 
+          />
         )}
       </div>
     );
@@ -211,7 +277,22 @@ const App: React.FC = () => {
           </div>
         )}
         {viewMode === 'management' && !isPupil && (
-          <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u) => setSettings(p=>({...p,...u}))} onSave={handleSave} processedSnapshot={processedStudents} onLoadDummyData={() => { const d = generateFullDemoSuite(); setStudents(d.students); setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); }} onClearData={() => { if(window.confirm("Clear Data?")){ setStudents(RAW_STUDENTS); setFacilitators({}); handleSave(); }}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />
+          <ManagementDesk 
+            students={students} 
+            setStudents={setStudents} 
+            facilitators={facilitators} 
+            setFacilitators={setFacilitators} 
+            subjects={SUBJECT_LIST} 
+            settings={settings} 
+            onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} 
+            onBulkUpdate={(u) => setSettings(p=>({...p,...u}))} 
+            onSave={handleSave} 
+            processedSnapshot={processedStudents} 
+            onLoadDummyData={() => { const d = generateFullDemoSuite(); setStudents(d.students); setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); }} 
+            onClearData={() => { if(window.confirm("Clear Data?")){ setStudents(RAW_STUDENTS); setFacilitators({}); handleSave(); }}} 
+            isFacilitator={isFacilitator} 
+            activeFacilitator={activeFacilitator} 
+          />
         )}
         {viewMode === 'pupil_hub' && isPupil && activePupil && (
           <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} />

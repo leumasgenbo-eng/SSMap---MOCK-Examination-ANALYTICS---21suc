@@ -1,47 +1,40 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Safe environment variable access to prevent "Cannot read properties of undefined"
-const getEnvVar = (name: string, fallback: string): string => {
+/**
+ * UNITED BAYLOR ACADEMY - PERSISTENCE LAYER CONFIGURATION
+ * ------------------------------------------------------
+ * This client manages the handshake between the frontend and the 
+ * Supabase PostgreSQL engine using Multi-Tenant RLS policies.
+ */
+
+const getSafeEnv = (key: string, fallback: string): string => {
   try {
-    // Try Vite standard
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[name]) {
-      return import.meta.env[name];
+    // 1. Try Vite-style env (standard for this project)
+    // Fix: Accessing import.meta via type casting to any to avoid property 'env' existence errors in TypeScript
+    const anyMeta = import.meta as any;
+    if (anyMeta && anyMeta.env && anyMeta.env[key]) {
+      return anyMeta.env[key];
     }
-    // Try Node/CommonJS standard (often shimmed in web containers)
-    if (typeof process !== 'undefined' && process.env && process.env[name]) {
-      return process.env[name];
+    // 2. Try Process-style env (standard for Node/CI)
+    // Fix: Casting process.env to any to ensure safe property access if global definitions are missing
+    const anyProcessEnv = (typeof process !== 'undefined' && process.env) ? (process.env as any) : null;
+    if (anyProcessEnv && anyProcessEnv[key]) {
+      return anyProcessEnv[key];
     }
   } catch (e) {
-    console.warn(`Environment variable access failed for ${name}:`, e);
+    // Silent fail - use fallback
   }
   return fallback;
 };
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL', 'https://atlhesebcfjcecmbmwuj.supabase.co');
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bGhlc2ViY2ZqY2VjbWJtd3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NDc0MTYsImV4cCI6MjA4NTAyMzQxNn0.hmiF7aWatQCGaJPuc2LzzF7z2IAxwoBy3fGlNacz2XQ');
+const supabaseUrl = getSafeEnv('VITE_SUPABASE_URL', 'https://atlhesebcfjcecmbmwuj.supabase.co');
+const supabaseAnonKey = getSafeEnv('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bGhlc2ViY2ZqY2VjbWJtd3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NDc0MTYsImV4cCI6MjA4NTAyMzQxNn0.hmiF7aWatQCGaJPuc2LzzF7z2IAxwoBy3fGlNacz2XQ');
 
+// Initialize the Singleton Client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * FINALIZED SCHEMA (Execute in Supabase SQL Editor):
- * 
- * -- Table Setup
- * CREATE TABLE public.uba_persistence (
- *   id TEXT PRIMARY KEY,
- *   payload JSONB NOT NULL,
- *   last_updated TIMESTAMPTZ DEFAULT NOW(),
- *   user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE
- * );
- * 
- * -- Security
- * ALTER TABLE public.uba_persistence ENABLE ROW LEVEL SECURITY;
- * 
- * -- Owners manage their own rows
- * CREATE POLICY "Manage Own Data" ON public.uba_persistence
- * FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
- * 
- * -- Allow registry discovery (PUBLIC / ANON)
- * -- This is CRITICAL: unauthenticated users must see the registry to log in.
- * CREATE POLICY "Public Read Registry" ON public.uba_persistence
- * FOR SELECT TO anon, authenticated USING (id LIKE 'registry_%');
+ * HANDSHAKE VERIFICATION:
+ * To ensure the database is ready, run the provided schema.sql in your 
+ * Supabase SQL Editor. The table name must be: uba_persistence
  */
