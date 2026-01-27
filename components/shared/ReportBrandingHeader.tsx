@@ -23,7 +23,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
       {/* Sync Status - No Print */}
       <div className="absolute top-0 right-0 no-print flex items-center gap-3 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm">
         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-        <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">NETWORK NODE: {settings.schoolNumber}</span>
+        <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">NETWORK HUB: {settings.schoolNumber || "LOCAL_MODE"}</span>
       </div>
 
       <div className="space-y-2">
@@ -33,7 +33,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
             value={settings.schoolName} 
             onChange={(v) => onSettingChange('schoolName', v)} 
             className="text-center font-black w-full"
-            placeholder="ACADEMY NAME"
+            placeholder="OFFICIAL ACADEMY NAME"
           />
         </h1>
 
@@ -43,24 +43,24 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
             value={settings.schoolAddress} 
             onChange={(v) => onSettingChange('schoolAddress', v)} 
             className="text-center w-full"
-            placeholder="LOCALITY / ADDRESS"
+            placeholder="LOCALITY / POSTAL ADDRESS"
           />
         </p>
 
-        {/* Contact Particulars */}
+        {/* Contact Particulars - All Editable */}
         <div className="flex justify-center items-center gap-6 text-[10px] font-black text-blue-800 uppercase tracking-widest mt-1">
           <div className="flex items-center gap-1.5">
             <span>TEL:</span>
-            <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="PHONE..." />
+            <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="PHONE CONTACT..." />
           </div>
           <div className="w-1.5 h-1.5 bg-blue-100 rounded-full"></div>
           <div className="flex items-center gap-1.5">
             <span>EMAIL:</span>
-            <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="EMAIL..." className="lowercase" />
+            <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="OFFICIAL EMAIL..." className="lowercase" />
           </div>
         </div>
 
-        {/* Secondary Report Title */}
+        {/* Secondary Report Title - Editable (e.g. 2ND MOCK 2025) */}
         <div className="mt-6 bg-red-50 py-3.5 border-y border-red-100 shadow-sm relative overflow-hidden group">
           <div className="absolute inset-y-0 left-0 w-1 bg-red-600"></div>
           <div className="absolute inset-y-0 right-0 w-1 bg-red-600"></div>
@@ -80,11 +80,11 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
             <span className="bg-blue-900 text-white px-5 py-1 rounded shadow-lg">{settings.termInfo}</span>
           </div>
           <div className="flex items-center gap-2 border-x border-gray-200 px-8">
-             <span className="text-[9px] text-gray-400">SERIES:</span>
+             <span className="text-[9px] text-gray-400 uppercase">Series ID:</span>
              <span>{settings.activeMock}</span>
           </div>
           <div className="flex items-center gap-2">
-             <span className="text-[9px] text-gray-400">AY:</span>
+             <span className="text-[9px] text-gray-400 uppercase">Year:</span>
              <span className="italic">{settings.academicYear}</span>
           </div>
         </div>

@@ -17,8 +17,8 @@ const getEnvVar = (name: string, fallback: string): string => {
   return fallback;
 };
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL', 'https://zokbowglwohpfqmjnemc.supabase.co');
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpva2Jvd2dsd29ocGZxbWpuZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NzAyOTEsImV4cCI6MjA4NDU0NjI5MX0.FA-TC3fnHAipudO8X-jJ7iljkwxn9L_g-tuXd8x4_Yo');
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL', 'https://atlhesebcfjcecmbmwuj.supabase.co');
+const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bGhlc2ViY2ZqY2VjbWJtd3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NDc0MTYsImV4cCI6MjA4NTAyMzQxNn0.hmiF7aWatQCGaJPuc2LzzF7z2IAxwoBy3fGlNacz2XQ');
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
